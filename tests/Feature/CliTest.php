@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 use FleetKit\Pace\Account;
 use FleetKit\Pace\Cli;
+use FleetKit\Pace\Presence;
 use FleetKit\Pace\ReadFailed;
 use FleetKit\Pace\Usage;
 use FleetKit\Pace\UsageReader;
 use FleetKit\Pace\UnsupportedReader;
 
 /** @return array{0: int, 1: list<string>, 2: list<string>, 3: list<array{0: string, 1: array}>} exit, stdout, stderr, shell calls */
-function seatPace(array $argv, ?UsageReader $reader = null, string $now = '2026-10-21T12:00:00-05:00', string $machine = 'office', array $shellOut = [], ?string $dir = null, ?string $toml = null): array
+function seatPace(array $argv, ?UsageReader $reader = null, string $now = '2026-10-21T12:00:00-05:00', string $machine = 'office', array $shellOut = [], ?string $dir = null, ?string $toml = null, ?Presence $presence = null): array
 {
     $dir ??= sys_get_temp_dir().'/seat-pace-'.bin2hex(random_bytes(4));
     is_dir($dir) || mkdir($dir);
@@ -28,6 +29,7 @@ function seatPace(array $argv, ?UsageReader $reader = null, string $now = '2026-
         shell: function (string $c, array $e) use (&$shell, $shellOut) { $shell[] = [$c, $e]; return $shellOut[$c] ?? ''; },
         sleep: function (int $s) { throw new RuntimeException("slept {$s}"); },
         machine: $machine,
+        presence: $presence,
     );
 
     return [$cli->run(array_merge($argv, ['--config', $config])), $out, $err, $shell, $dir];

@@ -36,6 +36,8 @@ utc  account  window  used  resets_at  baseline  projected  verdict  extra  note
 
 What the command does is yours: post a note where the coordinator will see it, open a task, send a message. Keep the script in your private configuration repository and make it read any secret it needs from the machine, never from the repository.
 
+**When the account lists several machines** (`machine = ["office", "home"]`), the log is on whichever machine read last, and each machine has its own. A machine standing by for the preferred one prints `STANDBY account=<name> reading=<machine>` and writes nothing. After a takeover the first reading is a fresh start: it is logged but does not run `on_change`, so a verdict that changed while the other machine was reading reaches you only through that machine's last notification. See [When the reading machine is down](pacing.md#when-the-reading-machine-is-down), including what it cannot see.
+
 `seat-pace pace` also exits `0` for UNDER and `3` for OVER (`1`: the read failed; `2`: a configuration error), if a script of yours wants the verdict without parsing. See [Pacing a usage allowance](pacing.md) for the line, the dead band and the commands.
 
 ## Writing the policy

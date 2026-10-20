@@ -7,6 +7,7 @@ use FleetKit\Pace\Cli;
 use FleetKit\Pace\ClaudeUsageReader;
 use FleetKit\Pace\CurlTransport;
 use FleetKit\Pace\FileCredentials;
+use FleetKit\Pace\FleetPresence;
 use FleetKit\Pace\KeychainCredentials;
 use FleetKit\Pace\UnsupportedReader;
 
@@ -34,6 +35,39 @@ $shell = function (string $command, array $env): string {
     return $out;
 };
 
+// A fallback machine asks the fleet who is present through the enrolled `robot-council` command. It is run
+// as a command line, not an argument list: on Windows the command is a .cmd that only a shell resolves.
+// Output goes to temporary files, not pipes, so a wait with a deadline cannot deadlock on a full pipe (pipes
+// are not selectable on Windows); stdin is the null device, so the command can never wait for input.
+$ask = function (string $command): array {
+    $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    $out = tempnam(sys_get_temp_dir(), 'seat-pace-out-');
+    $err = tempnam(sys_get_temp_dir(), 'seat-pace-err-');
+    try {
+        $process = @proc_open($command, [0 => ['file', $null, 'r'], 1 => ['file', $out, 'w'], 2 => ['file', $err, 'w']], $pipes);
+        if (! is_resource($process)) {
+            return [127, '', 'could not run the robot-council command'];
+        }
+        $deadline = time() + 30;
+        // proc_get_status reports the exit code only on the call that sees the process end; proc_close answers -1 after.
+        while (($status = proc_get_status($process))['running']) {
+            if (time() >= $deadline) {
+                proc_terminate($process);
+                proc_close($process);
+
+                return [124, '', 'the robot-council command did not answer in 30 seconds'];
+            }
+            usleep(100_000);
+        }
+        proc_close($process);
+
+        return [$status['exitcode'], (string) file_get_contents($out), (string) file_get_contents($err)];
+    } finally {
+        @unlink($out);
+        @unlink($err);
+    }
+};
+
 $cli = new Cli(
     out: fn (string $line) => print $line."\n",
     err: fn (string $line) => fwrite(STDERR, $line."\n"),
@@ -42,6 +76,7 @@ $cli = new Cli(
     shell: $shell,
     sleep: fn (int $seconds) => sleep($seconds),
     machine: getenv('SEAT_PACE_MACHINE') ?: (string) gethostname(),
+    presence: new FleetPresence($ask),
 );
 
 exit($cli->run(array_slice($argv, 1), getenv('FLEET_KIT_CONFIG') ?: null));

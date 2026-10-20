@@ -50,6 +50,7 @@ final class Cli
         private readonly Closure $shell,
         private readonly Closure $sleep,
         private readonly string $machine,
+        private readonly ?Presence $presence = null,
     ) {}
 
     /** @param  list<string>  $argv  the arguments after the program name */
@@ -142,7 +143,7 @@ final class Cli
 
         // Unnamed, watch covers every account this machine can read.
         $accounts = $name === null
-            ? array_values(array_filter($config->accounts, fn (Account $a) => strcasecmp($a->machine, $this->machine) === 0))
+            ? array_values(array_filter($config->accounts, fn (Account $a) => $a->position($this->machine) !== null))
             : [$config->account($name)];
         if ($accounts === []) {
             throw new ConfigError("no account is read on \"{$this->machine}\"");
@@ -153,10 +154,16 @@ final class Cli
 
         do {
             $failed = false;
+            $present = [];
             foreach ($accounts as $account) {
                 // One account's failed read must not stop the others, or the next tick.
                 try {
-                    $this->record($account, $config, '', true);
+                    if ($this->standingBy($account, $present)) {
+                        continue;
+                    }
+                    // Stale after one and a half intervals: a normal next tick is one interval on, and a tick
+                    // stood by is two, so the two cannot be confused by a little scheduler jitter.
+                    $this->record($account, $config, '', true, intdiv($every * 3, 2));
                 } catch (ReadFailed $e) {
                     ($this->err)("seat-pace: {$account->name}: ".$e->getMessage());
                     $failed = true;
@@ -169,15 +176,69 @@ final class Cli
         } while (true);
     }
 
-    /** Read, judge and log one row; with $notify, run on_change when the verdict differs from the last row's. */
-    private function record(Account $account, Config $config, string $note, bool $notify = false): Verdict
+    /**
+     * Whether this machine should leave the account to a machine earlier in its list this tick. The
+     * preferred machine never stands by and never asks. A later one asks the fleet whether any machine
+     * before it has an active session, and stands by if one does. If it cannot ask, it does not read:
+     * it never assumes the preferred machine is down.
+     *
+     * @param  array<string, list<string>|ReadFailed>  $present  the fleet's answer (or why there is none) for each harness, asked once a tick
+     *
+     * @throws ReadFailed
+     */
+    private function standingBy(Account $account, array &$present): bool
+    {
+        $position = (int) $account->position($this->machine);
+        if ($position === 0) {
+            return false;
+        }
+
+        $before = array_slice($account->machines, 0, $position);
+        if (! isset($present[$account->harness])) {
+            // A failed ask is kept for the tick too, so accounts sharing a harness do not each wait on it.
+            try {
+                $present[$account->harness] = $this->presence?->activeMachines($account->harness) ?? throw new ReadFailed('no way to ask the fleet');
+            } catch (ReadFailed $e) {
+                $present[$account->harness] = $e;
+            }
+        }
+        if ($present[$account->harness] instanceof ReadFailed) {
+            throw new ReadFailed('cannot tell whether '.implode(' or ', $before).' is reading, so not reading ('.$present[$account->harness]->getMessage().')');
+        }
+
+        foreach ($before as $machine) {
+            if (in_array(strtolower($machine), $present[$account->harness], true)) {
+                ($this->out)(sprintf('STANDBY account=%s reading=%s', $account->name, $machine));
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Read, judge and log one row; with $notify, run on_change when the verdict differs from the last row's.
+     *
+     * An account with a fallback is read by different machines, each with a log of its own, so a row
+     * older than $staleAfter seconds is not a fair "previous verdict": the other machine may have
+     * read since. The reading after such a gap is logged as a fresh start and does not run on_change,
+     * rather than reporting a change that may not have happened.
+     */
+    private function record(Account $account, Config $config, string $note, bool $notify = false, ?int $staleAfter = null): Verdict
     {
         $now = ($this->clock)();
         $used = $this->reading($account, $now)->sevenDayUsed;
         $verdict = Pace::judge($account, $used, $now);
 
         $log = new Log($config->log);
-        $previous = $log->lastVerdict($account->name);
+        $last = $log->last($account->name);
+        $previous = $last['verdict'] ?? null;
+        if ($notify && $previous !== null && $account->hasFallback() && $staleAfter !== null
+            && ($last['at'] === null || $now->getTimestamp() - $last['at']->getTimestamp() > $staleAfter)) {
+            ($this->err)(sprintf('seat-pace: %s: the last row here is older than %d minutes, so this reading is a fresh start and on_change does not run', $account->name, intdiv($staleAfter, 60)));
+            $previous = null;
+        }
         $extra = $account->logExtra === null ? '' : trim(($this->shell)($account->logExtra, []));
         $log->append($now, $account->name, $used, $verdict, $extra, $note);
         ($this->out)($verdict->line($account->name));
@@ -211,11 +272,11 @@ final class Cli
         return $usage;
     }
 
-    /** Reading needs the machine whose login holds the credential. */
+    /** Reading needs a machine whose login holds the credential: one the account lists. */
     private function mayRead(Account $account): void
     {
-        if (strcasecmp($account->machine, $this->machine) !== 0) {
-            throw new ConfigError("account \"{$account->name}\" is read on \"{$account->machine}\", not on \"{$this->machine}\"");
+        if ($account->position($this->machine) === null) {
+            throw new ConfigError("account \"{$account->name}\" is read on ".implode(', ', array_map(fn (string $m) => "\"{$m}\"", $account->machines)).", not on \"{$this->machine}\"");
         }
     }
 

@@ -42,6 +42,12 @@ final class Log
     /** The verdict of the account's last row, or null when it has none. */
     public function lastVerdict(string $account): ?string
     {
+        return $this->last($account)['verdict'] ?? null;
+    }
+
+    /** @return array{verdict: string, at: ?DateTimeImmutable}|null the account's last row: its verdict and when it was written */
+    public function last(string $account): ?array
+    {
         if (! is_file($this->path)) {
             return null;
         }
@@ -49,7 +55,8 @@ final class Log
         foreach (file($this->path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) ?: [] as $line) {
             $cells = explode("\t", $line);
             if (($cells[1] ?? null) === $account && in_array($cells[7] ?? null, ['UNDER', 'OVER'], true)) {
-                $last = $cells[7];
+                $at = DateTimeImmutable::createFromFormat('Y-m-d\TH:i:s\Z', $cells[0], new DateTimeZone('UTC'));
+                $last = ['verdict' => $cells[7], 'at' => $at === false ? null : $at];
             }
         }
 

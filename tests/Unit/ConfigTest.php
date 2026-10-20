@@ -63,3 +63,24 @@ it('rejects a bad account', function (string $toml, string $message) {
     'negative band' => [accountToml('working', 'dead_band = -1'), 'dead_band'],
     'duplicate' => [accountToml()."\n".accountToml(), 'twice'],
 ]);
+
+it('reads an account\'s machine as a name or as a list in priority order', function () {
+    $one = Config::parse(accountToml())->accounts[0];
+    $several = Config::parse(str_replace('machine = "office"', 'machine = ["office", "Home"]', accountToml()))->accounts[0];
+
+    expect($one->machines)->toBe(['office'])->and($one->hasFallback())->toBeFalse()
+        ->and($several->machines)->toBe(['office', 'Home'])->and($several->hasFallback())->toBeTrue()
+        ->and($several->position('OFFICE'))->toBe(0)
+        ->and($several->position('home'))->toBe(1)
+        ->and($several->position('desk'))->toBeNull();
+});
+
+it('rejects an account machine that is missing, empty, repeated or not a name', function (string $machine, string $message) {
+    expect(fn () => Config::parse(str_replace('machine = "office"', $machine, accountToml())))->toThrow(ConfigError::class, $message);
+})->with([
+    'empty list' => ['machine = []', 'machine is required'],
+    'empty name' => ['machine = ""', 'machine is required'],
+    'number' => ['machine = 3', 'machine is required'],
+    'a number in the list' => ['machine = ["office", 3]', 'machine is required'],
+    'repeated' => ['machine = ["office", "OFFICE"]', 'listed twice'],
+]);

@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- launchd: runs one `seat-pace watch` tick every 55 minutes. Copy to ~/Library/LaunchAgents/,
      replace /path/to/fleet-kit, then `launchctl load` it. For a Composer install use the
-     seat-pace proxy and the seats.toml in your private configuration repository. -->
+     seat-pace proxy and the seats.toml in your private configuration repository. An account that lists
+     a fallback machine also needs `robot-council` on PATH and ROBOT_COUNCIL_SERVICE in this job's
+     environment (an EnvironmentVariables dict here), which launchd does not inherit. -->
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>

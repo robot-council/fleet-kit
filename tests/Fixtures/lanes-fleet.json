@@ -1,0 +1,7 @@
+{
+    "sessions": [
+        {"id": 90, "github_login": "example-user", "harness": "claude", "machine_label": "Home", "role": "build", "repository": "example-org/example-repo", "work_location": "primary", "os_family": "windows", "arch": "x86_64", "status": "active", "last_seen_at": "2026-10-21T17:00:00+00:00", "capacity": 1, "tasks": []},
+        {"id": 88, "github_login": "example-user", "harness": "claude", "machine_label": "laptop", "role": "build", "repository": "example-org/example-repo", "work_location": "primary", "os_family": "darwin", "arch": "arm64", "status": "stale", "last_seen_at": "2026-10-21T09:00:00+00:00", "capacity": 1, "tasks": []}
+    ],
+    "cursor": 88
+}
