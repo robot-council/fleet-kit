@@ -9,7 +9,8 @@ whether it is above or below a straight line to the reset. It reports; it never 
 1. `composer install` (PHP 8.4 or later).
 2. Copy `examples/seats.toml` to `seats.toml` and edit the `[[account]]`. Pass another path with
    `--config` or `FLEET_KIT_CONFIG`.
-3. Try the arithmetic, which reads nothing: `bin/seat-pace pace --used 46 --now 2026-10-21T12:00:00-05:00`.
+3. Try the arithmetic, which reads nothing: `bin/seat-pace pace --used 46 --now 2026-10-21T12:00:00-05:00`
+   (`seat-pace` if you installed with Composer; see the README's Install section).
 
 ## The line
 
