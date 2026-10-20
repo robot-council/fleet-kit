@@ -87,6 +87,8 @@ Add an `[[account]]` to the same seats file (the example has one). Then, in orde
 2. **`seat-pace read`** reads the live allowance with the credential of the Claude Code login on this machine, and prints the five-hour and seven-day utilization. It runs only on the account's `machine` (the hostname, or `SEAT_PACE_MACHINE`). It works on Windows and macOS; on Linux it answers "unsupported on this platform". This is the step that talks to the real usage endpoint: it has not been run live here, and how it answers an expired token is unmeasured. It is a read of your own account, run by you.
 3. **A scheduler.** `seat-pace watch --once` reads, logs and runs your `on_change` when the verdict changes. Templates are in `examples/schedulers/`: launchd (macOS), systemd (Linux, once `read` is supported there) and Task Scheduler (Windows). Edit the paths in the template: for a Composer install, use `seat-pace` or `vendor/bin/seat-pace` rather than `/path/to/fleet-kit/bin/seat-pace`, and give `--config` the path to your configuration repository's `seats.toml`. The whole of [Pacing a usage allowance](pacing.md) explains the line, the verdict and the log.
 
+If you work from more than one machine, list them in `machine = [...]` and run the same scheduled `watch --once` on each; a later machine reads when the fleet shows the earlier ones absent. That needs the enrolled `robot-council` command and `ROBOT_COUNCIL_SERVICE` in the scheduler's environment: see [When the reading machine is down](pacing.md#when-the-reading-machine-is-down).
+
 ## Updating
 
 Take a new release with Composer:

@@ -60,6 +60,8 @@ log = "seat-pace.tsv"
 name = "main"
 harness = "claude"        # the adapter that reads this allowance
 machine = "office"        # the machine whose login can read it; set SEAT_PACE_MACHINE to override the hostname
+# machine = ["office", "home"]   # or a list, the preferred first: "home" reads while the fleet shows "office"
+#                                # absent (docs/pacing.md). Names are the machines' labels in the fleet.
 timezone = "America/Chicago"
 reset = "Mon 12:00"       # the configured reset is authoritative; the endpoint's resets_at is only a cross-check
 hours = "working"         # "working" draws the line over working hours, "clock" over every hour

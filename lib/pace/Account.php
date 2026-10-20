@@ -7,12 +7,13 @@ namespace FleetKit\Pace;
 use DateTimeZone;
 use Exception;
 
-/** An allowance belongs to an account: its harness, the machine that can read it, its reset and its line. */
+/** An allowance belongs to an account: its harness, the machines that can read it, its reset and its line. */
 final readonly class Account
 {
     private const DAYS = ['Mon' => 1, 'Tue' => 2, 'Wed' => 3, 'Thu' => 4, 'Fri' => 5, 'Sat' => 6, 'Sun' => 7];
 
     /**
+     * @param  list<string>  $machines  the machines whose logins can read it, the preferred one first
      * @param  list<int>  $workingDays  ISO weekday numbers, 1 = Monday
      * @param  array{0: int, 1: int}  $workStart  hour and minute
      * @param  array{0: int, 1: int}  $workEnd  hour and minute
@@ -21,7 +22,7 @@ final readonly class Account
     public function __construct(
         public string $name,
         public string $harness,
-        public string $machine,
+        public array $machines,
         public DateTimeZone $timezone,
         public int $resetDay,
         public array $resetTime,
@@ -84,7 +85,7 @@ final readonly class Account
         return new self(
             name: $name,
             harness: self::string($row, 'harness', null, $at),
-            machine: self::string($row, 'machine', null, $at),
+            machines: self::machines($row['machine'] ?? null, $at),
             timezone: $timezone,
             resetDay: self::DAYS[$m[1]],
             resetTime: $resetTime,
@@ -96,6 +97,45 @@ final readonly class Account
             logExtra: isset($row['log_extra']) ? self::string($row, 'log_extra', null, $at) : null,
             onChange: isset($row['on_change']) ? self::string($row, 'on_change', null, $at) : null,
         );
+    }
+
+    /** Where this host stands in the account's machine list: 0 is the preferred machine, null is not listed. */
+    public function position(string $host): ?int
+    {
+        foreach ($this->machines as $index => $machine) {
+            if (strcasecmp($machine, $host) === 0) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    public function hasFallback(): bool
+    {
+        return count($this->machines) > 1;
+    }
+
+    /**
+     * One machine name, or a list in priority order. A plain string is a list of one.
+     *
+     * @return list<string>
+     */
+    private static function machines(mixed $value, string $at): array
+    {
+        $names = is_array($value) ? $value : [$value];
+        $machines = [];
+        foreach ($names as $name) {
+            if (! is_string($name) || $name === '') {
+                throw new ConfigError("{$at}: machine is required, a name or a list of names");
+            }
+            if (in_array(strtolower($name), array_map('strtolower', $machines), true)) {
+                throw new ConfigError("{$at}: machine \"{$name}\" is listed twice");
+            }
+            $machines[] = $name;
+        }
+
+        return $machines === [] ? throw new ConfigError("{$at}: machine is required, a name or a list of names") : $machines;
     }
 
     /** @param array<string, mixed> $row */

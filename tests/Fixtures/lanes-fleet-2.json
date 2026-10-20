@@ -1,0 +1,6 @@
+{
+    "sessions": [
+        {"id": 71, "github_login": "example-user", "harness": "claude", "machine_label": "office", "role": "coordinator", "repository": null, "work_location": null, "os_family": "darwin", "arch": "arm64", "status": "active", "last_seen_at": "2026-10-21T16:58:00+00:00", "capacity": 0, "tasks": []}
+    ],
+    "cursor": null
+}

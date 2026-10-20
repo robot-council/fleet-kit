@@ -7,4 +7,6 @@ Description=seat-pace: read, log and judge a usage allowance
 
 [Service]
 Type=oneshot
+# An account that lists a fallback machine also needs `robot-council` on PATH and ROBOT_COUNCIL_SERVICE,
+# e.g. Environment=ROBOT_COUNCIL_SERVICE=https://fleet.example.org
 ExecStart=/path/to/fleet-kit/bin/seat-pace watch --once --config /path/to/fleet-config/seats.toml
