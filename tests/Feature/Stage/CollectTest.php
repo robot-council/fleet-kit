@@ -114,3 +114,14 @@ it('does not record one conversation for two seats', function () {
     expect(implode("\n", $out))->toContain('m/b: conv-new is already recorded for m/a')
         ->and(Fleet::parse($after)->seats[1]->conversation)->toBeNull();
 });
+
+it('keeps mixed line endings byte for byte, and ends a new line like the line before it', function () {
+    $source = "[[seat]]\r\nmachine = \"m\"\nslot = \"a\"\r\ncheckout = \"/x\"\n";
+
+    expect(Collector::set($source, 'm', 'a', 'c-1'))
+        ->toBe("[[seat]]\r\nmachine = \"m\"\nslot = \"a\"\r\nconversation = \"c-1\"\r\ncheckout = \"/x\"\n");
+
+    // A slot line that ends the file gets a terminator, and the new last line has none.
+    expect(Collector::set("[[seat]]\nmachine = \"m\"\nslot = \"a\"", 'm', 'a', 'c-1'))
+        ->toBe("[[seat]]\nmachine = \"m\"\nslot = \"a\"\nconversation = \"c-1\"");
+});

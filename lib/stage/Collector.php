@@ -94,8 +94,11 @@ final readonly class Collector
     {
         preg_match(self::ID, $id) || throw new ConfigError('conversation ids are letters, digits, dot, dash and underscore');
 
+        // Each line keeps its own terminator, so a file with mixed endings comes back byte for byte.
+        $pieces = preg_split('/(?<=\n)/', $source, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $lines = array_map(fn (string $p) => rtrim($p, "\r\n"), $pieces);
+        $ends = array_map(fn (string $p, string $l) => substr($p, strlen($l)), $pieces, $lines);
         $eol = str_contains($source, "\r\n") ? "\r\n" : "\n";
-        $lines = explode($eol, $source);
 
         foreach ($lines as $start => $line) {
             if (! preg_match('/^\s*\[\[\s*seat\s*\]\]/', $line)) {
@@ -106,7 +109,7 @@ final readonly class Collector
                 $end++;
             }
             $block = array_slice($lines, $start, $end - $start + 1);
-            $text = implode($eol, $block);
+            $text = implode("\n", $block);
             $has = fn (string $key, string $value) => (bool) preg_match('/^\s*'.$key.'\s*=\s*["\x27]'.preg_quote($value, '/').'["\x27]/m', $text);
             if (! $has('machine', $machine) || ! $has('slot', $slot)) {
                 continue;
@@ -128,10 +131,19 @@ final readonly class Collector
                     }
                 }
                 array_splice($block, $after + 1, 0, ["conversation = \"{$id}\""]);
+                // The new line ends like the slot line it follows (or like the file, if that line was last).
+                $blockEnds = array_slice($ends, $start, $end - $start + 1);
+                $newEnd = $blockEnds[$after];
+                if ($newEnd === '') {
+                    // The slot line was the last line of the file, with no terminator: give it one.
+                    $blockEnds[$after] = $eol;
+                }
+                array_splice($blockEnds, $after + 1, 0, [$newEnd]);
+                array_splice($ends, $start, $end - $start + 1, $blockEnds);
             }
             array_splice($lines, $start, $end - $start + 1, $block);
 
-            return implode($eol, $lines);
+            return implode('', array_map(fn (string $l, string $e) => $l.$e, $lines, $ends));
         }
 
         throw new ConfigError("no [[seat]] for {$machine}/{$slot} to record the conversation in");
