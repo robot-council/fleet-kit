@@ -1,0 +1,33 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use FleetKit\Stage\Cli;
+use FleetKit\Stage\Host;
+use FleetKit\Stage\ProcessShell;
+use FleetKit\Stage\PsClock;
+use FleetKit\Stage\UnknownClock;
+use FleetKit\Stage\WindowsClock;
+
+require dirname(__DIR__).'/vendor/autoload.php';
+
+$shell = new ProcessShell;
+
+// Start times are compared on Windows (measured) and macOS (same rule, unmeasured); elsewhere nothing is claimed.
+$clock = match (PHP_OS_FAMILY) {
+    'Windows' => new WindowsClock($shell),
+    'Darwin' => new PsClock($shell),
+    default => new UnknownClock,
+};
+
+$cli = new Cli(
+    out: fn (string $line) => print $line."\n",
+    err: fn (string $line) => fwrite(STDERR, $line."\n"),
+    shell: $shell,
+    host: Host::real(),
+    clock: $clock,
+    sleep: fn (int $seconds) => sleep($seconds),
+);
+
+exit($cli->run(array_slice($argv, 1), getenv('FLEET_KIT_CONFIG') ?: null));
