@@ -25,8 +25,9 @@ interface Presence
  * is never listed); a session that is only `stale` does not count as present. The command starts a
  * session of its own for the read (ephemeral, so the fleet's feed and session list do not show it).
  *
- * "Present" is a live session on the machine, not proof that seat-pace is reading there: a machine whose
- * scheduler is broken but whose seats are running still counts.
+ * "Present" is a live session on the machine, of any harness (the list cannot be filtered by one; `--harness`
+ * only chooses which enrolled credential makes the call), not proof that seat-pace is reading there: a
+ * machine whose scheduler is broken but whose seats are running still counts.
  */
 final class FleetPresence implements Presence
 {

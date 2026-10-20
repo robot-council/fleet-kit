@@ -37,17 +37,35 @@ $shell = function (string $command, array $env): string {
 
 // A fallback machine asks the fleet who is present through the enrolled `robot-council` command. It is run
 // as a command line, not an argument list: on Windows the command is a .cmd that only a shell resolves.
+// Output goes to temporary files, not pipes, so a wait with a deadline cannot deadlock on a full pipe (pipes
+// are not selectable on Windows); stdin is the null device, so the command can never wait for input.
 $ask = function (string $command): array {
-    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-    if (! is_resource($process)) {
-        return [127, '', 'could not run the robot-council command'];
-    }
-    $out = (string) stream_get_contents($pipes[1]);
-    $err = (string) stream_get_contents($pipes[2]);
-    fclose($pipes[1]);
-    fclose($pipes[2]);
+    $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+    $out = tempnam(sys_get_temp_dir(), 'seat-pace-out-');
+    $err = tempnam(sys_get_temp_dir(), 'seat-pace-err-');
+    try {
+        $process = @proc_open($command, [0 => ['file', $null, 'r'], 1 => ['file', $out, 'w'], 2 => ['file', $err, 'w']], $pipes);
+        if (! is_resource($process)) {
+            return [127, '', 'could not run the robot-council command'];
+        }
+        $deadline = time() + 30;
+        // proc_get_status reports the exit code only on the call that sees the process end; proc_close answers -1 after.
+        while (($status = proc_get_status($process))['running']) {
+            if (time() >= $deadline) {
+                proc_terminate($process);
+                proc_close($process);
 
-    return [proc_close($process), $out, $err];
+                return [124, '', 'the robot-council command did not answer in 30 seconds'];
+            }
+            usleep(100_000);
+        }
+        proc_close($process);
+
+        return [$status['exitcode'], (string) file_get_contents($out), (string) file_get_contents($err)];
+    } finally {
+        @unlink($out);
+        @unlink($err);
+    }
 };
 
 $cli = new Cli(

@@ -47,7 +47,7 @@ Packagist reads release tags: install a tag, or `dev-main` for the branch. To ta
 
 ## seat-pace
 
-Reports whether a harness's usage allowance is being spent faster or slower than a straight line to its reset. An account can list several machines, so a second one reads when the first is down. See [docs/pacing.md](docs/pacing.md).
+Reports whether a harness's usage allowance is being spent faster or slower than a straight line to its reset. An account can list several machines, so a second one reads when the fleet shows the first absent. See [docs/pacing.md](docs/pacing.md).
 
 ```
 seat-pace pace --used 46 --now 2026-10-21T12:00:00-05:00   # arithmetic only

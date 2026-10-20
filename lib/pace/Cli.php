@@ -161,7 +161,9 @@ final class Cli
                     if ($this->standingBy($account, $present)) {
                         continue;
                     }
-                    $this->record($account, $config, '', true, $every * 2);
+                    // Stale after one and a half intervals: a normal next tick is one interval on, and a tick
+                    // stood by is two, so the two cannot be confused by a little scheduler jitter.
+                    $this->record($account, $config, '', true, intdiv($every * 3, 2));
                 } catch (ReadFailed $e) {
                     ($this->err)("seat-pace: {$account->name}: ".$e->getMessage());
                     $failed = true;
@@ -180,7 +182,7 @@ final class Cli
      * before it has an active session, and stands by if one does. If it cannot ask, it does not read:
      * it never assumes the preferred machine is down.
      *
-     * @param  array<string, list<string>>  $present  the fleet's answer for each harness, asked once a tick
+     * @param  array<string, list<string>|ReadFailed>  $present  the fleet's answer (or why there is none) for each harness, asked once a tick
      *
      * @throws ReadFailed
      */
@@ -192,13 +194,16 @@ final class Cli
         }
 
         $before = array_slice($account->machines, 0, $position);
-        try {
-            if ($this->presence === null) {
-                throw new ReadFailed('no way to ask the fleet');
+        if (! isset($present[$account->harness])) {
+            // A failed ask is kept for the tick too, so accounts sharing a harness do not each wait on it.
+            try {
+                $present[$account->harness] = $this->presence?->activeMachines($account->harness) ?? throw new ReadFailed('no way to ask the fleet');
+            } catch (ReadFailed $e) {
+                $present[$account->harness] = $e;
             }
-            $present[$account->harness] ??= $this->presence->activeMachines($account->harness);
-        } catch (ReadFailed $e) {
-            throw new ReadFailed('cannot tell whether '.implode(' or ', $before).' is reading, so not reading ('.$e->getMessage().')');
+        }
+        if ($present[$account->harness] instanceof ReadFailed) {
+            throw new ReadFailed('cannot tell whether '.implode(' or ', $before).' is reading, so not reading ('.$present[$account->harness]->getMessage().')');
         }
 
         foreach ($before as $machine) {

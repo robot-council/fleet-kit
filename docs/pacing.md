@@ -87,18 +87,23 @@ it reads, logs and runs `on_change` as the account's reader. When the preferred 
 tick on the fallback machine sees it and stands by again. The preferred machine never asks.
 
 - **It needs** `robot-council` on the scheduler's `PATH`, `ROBOT_COUNCIL_SERVICE` in the scheduler's
-  environment (a scheduled job does not inherit your shell's), and the machine enrolled under the
-  account's `harness` name (`claude`). The fallback machine needs no credential of its own for this and
-  the kit stores none.
-- **If it cannot ask** (the command is missing, not enrolled, or the fleet is unreachable), it says so on
+  environment (a scheduled job does not inherit your shell's), and the machine enrolled under a harness
+  named like the account's `harness` (`claude`): that only chooses which enrolled credential makes the
+  call. The fallback machine needs no usage credential for this and the kit stores none. The call is
+  given 30 seconds.
+- **If it cannot ask** (the command is missing, not enrolled, unreachable or too slow), it says so on
   stderr, exits 1 and does not read. It never reads on the assumption that the preferred machine is down.
-- **What it cannot see.** "Present" means the machine has a live session in the fleet, which is not the
-  same as `seat-pace` reading there. A present machine whose scheduler is broken goes unnoticed, and the
-  reading lapses. If the preferred machine's seats are all stopped but the machine is up, it counts as
-  absent and the fallback reads; if the preferred machine returns between two ticks, both may read once.
+- **What it cannot see.** "Present" means the machine has a live session in the fleet, of *any* harness
+  (the list cannot be filtered by one), which is not the same as `seat-pace` reading there. A present
+  machine whose scheduler is broken goes unnoticed, and the reading lapses.
+- **When both read.** Every tick on which the fallback finds the preferred machine absent while its
+  scheduler is in fact running, both read and both may notify. That happens when the preferred machine is up
+  but has no active session (its seats are stopped), and on every tick when a name in `machine` is not the
+  machine's label in the fleet (the fallback never sees it). Check the label against `sessions_list`.
 - **Log continuity.** Each machine's log is its own, so the last row on a machine that has just taken
   over (or just come back) can be old. For an account with a fallback, a reading whose last local row is
-  older than twice `--every` (110 minutes by default) is logged as a **fresh start** and `on_change` does
+  older than one and a half times `--every` (82 minutes by default; a tick stood by makes a row two
+  intervals old) is logged as a **fresh start** and `on_change` does
   not run for it, with a line on stderr, so a takeover does not invent a verdict change from a stale row.
   The next reading, one interval later, compares against the fresh row as usual. The limit: a change that
   happened *while* the other machine was reading is not reported by the machine that takes over, because

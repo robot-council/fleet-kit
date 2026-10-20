@@ -149,7 +149,7 @@ it('does not report a change at a takeover, and does not swallow the next real o
 
     expect(hooksOf($first))->toBe([])
         ->and(hooksOf($takeover))->toBe([])
-        ->and($err[0])->toContain('main: the last row here is older than 110 minutes')->toContain('fresh start')
+        ->and($err[0])->toContain('main: the last row here is older than 82 minutes')->toContain('fresh start')
         ->and(hooksOf($changed))->toHaveCount(1)
         ->and(hooksOf($changed)[0][1])->toBe(['SEAT_PACE_ACCOUNT' => 'main', 'SEAT_PACE_VERDICT' => 'UNDER', 'SEAT_PACE_PREVIOUS' => 'OVER'])
         ->and(file($dir.'/seat-pace.tsv'))->toHaveCount(4);
@@ -169,4 +169,41 @@ it('leaves an account with one machine exactly as it was, however old its log', 
     [, , $err, $calls] = seatPace(['watch', '--once'], fakeReader(90), '2026-10-23T12:00:00-05:00', dir: $dir);
 
     expect(hooksOf($calls))->toHaveCount(1)->and($err)->toBe([]);
+});
+
+it('treats a row one tick old as current and a row a tick stood by as stale', function (string $second, bool $fresh) {
+    $dir = freshDir();
+    $home = fn (string $now, float $used) => seatPace(['watch', '--once'], fakeReader($used), $now, 'home', dir: $dir, toml: listedTwice(), presence: fleetShowing([]));
+
+    $home('2026-10-21T11:00:00-05:00', 20);
+    [, , $err, $calls] = $home($second, 60);
+
+    expect(hooksOf($calls))->toHaveCount($fresh ? 0 : 1)->and($err !== [])->toBe($fresh);
+})->with([
+    'one interval and some jitter' => ['2026-10-21T12:03:00-05:00', false],
+    'a tick stood by (two intervals)' => ['2026-10-21T12:50:00-05:00', true],
+]);
+
+it('reads when the fleet shows no sessions at all', function () {
+    $empty = new FleetKit\Pace\FleetPresence(fn () => [0, '{"sessions":[],"cursor":null}', '']);
+    [$code, $out] = seatPace(['watch', '--once'], fakeReader(30), machine: 'home', toml: listedTwice(), presence: $empty);
+
+    expect($code)->toBe(0)->and($out[0])->toStartWith('UNDER account=main');
+});
+
+it('refuses a named account on a machine it does not list', function () {
+    [$code, , $err] = seatPace(['watch', 'main', '--once'], fakeReader(30), machine: 'desk', toml: listedTwice(), presence: fleetShowing([]));
+
+    expect($code)->toBe(2)->and($err[0])->toContain('is read on "office", "home", not on "desk"');
+});
+
+it('carries on to the next account when the fleet cannot be asked, and asks only once', function () {
+    $fleet = fleetShowing(new ReadFailed('unreachable'));
+    $other = str_replace('machine = "office"', 'machine = "home"', accountToml(name: 'solo'));
+    [$code, $out, $err] = seatPace(['watch', '--once'], fakeReader(30), machine: 'home', toml: listedTwice('one')."\n".listedTwice('two')."\n".$other, presence: $fleet);
+
+    expect($code)->toBe(1)
+        ->and($err)->toHaveCount(2)->and($err[0])->toContain('one: cannot tell')->and($err[1])->toContain('two: cannot tell')
+        ->and($out)->toHaveCount(1)->and($out[0])->toContain('account=solo')
+        ->and($fleet->asked)->toBe(1);
 });
