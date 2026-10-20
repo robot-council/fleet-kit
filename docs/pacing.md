@@ -6,9 +6,9 @@ whether it is above or below a straight line to the reset. It reports; it never 
 
 ## Setup
 
-1. `composer install` (PHP 8.4 or later).
-2. Copy `examples/seats.toml` to `seats.toml` and edit the `[[account]]`. Pass another path with
-   `--config` or `FLEET_KIT_CONFIG`.
+1. Install fleet-kit (PHP 8.4 or later): see [Getting started](getting-started.md).
+2. Copy `examples/seats.toml` into your private configuration repository as `seats.toml` and edit the
+   `[[account]]`. Point `FLEET_KIT_CONFIG` (or `--config`) at it.
 3. Try the arithmetic, which reads nothing: `bin/seat-pace pace --used 46 --now 2026-10-21T12:00:00-05:00`
    (`seat-pace` if you installed with Composer; see the README's Install section).
 
@@ -89,4 +89,4 @@ would report the failed request); and `CLAUDE_CONFIG_DIR`, which was not set whe
 
 ## What to do when OVER
 
-That lives in your fork. Start from [`pacing-policy.example.md`](pacing-policy.example.md).
+That lives in your private configuration repository. Start from [`pacing-policy.example.md`](pacing-policy.example.md); the [Coordinator guide](coordinators.md) says how a verdict reaches a coordinator.

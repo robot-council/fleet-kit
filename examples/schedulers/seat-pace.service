@@ -1,4 +1,5 @@
 # systemd user unit: one `seat-pace watch` tick. Pair it with seat-pace.timer.
+# For a Composer install, use the seat-pace proxy and the seats.toml in your private configuration repository.
 # Copy both to ~/.config/systemd/user/, replace /path/to/fleet-kit, then:
 #   systemctl --user enable --now seat-pace.timer
 [Unit]
