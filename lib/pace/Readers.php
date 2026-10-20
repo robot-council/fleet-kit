@@ -123,6 +123,47 @@ final class KeychainCredentials implements CredentialStore
     }
 }
 
+/**
+ * Windows: Claude Code keeps its credential in `.credentials.json` under its data directory
+ * (`%USERPROFILE%\.claude`). The file holds the `claudeAiOauth` object the keychain reader expects, and
+ * other entries (MCP servers), so only `claudeAiOauth.accessToken` is taken from it and nothing else is
+ * kept. No message here carries the file's contents.
+ */
+final class FileCredentials implements CredentialStore
+{
+    public function __construct(private readonly string $path) {}
+
+    /**
+     * The credential file for this user. `CLAUDE_CONFIG_DIR` is honoured as Claude Code's data directory
+     * but was not set where the file was measured. With no directory and no home, the path is empty and
+     * `token()` says so.
+     */
+    public static function default(): self
+    {
+        $configured = (string) getenv('CLAUDE_CONFIG_DIR');
+        $home = (string) (getenv('USERPROFILE') ?: getenv('HOME'));
+        $directory = $configured !== '' ? $configured : ($home !== '' ? $home.DIRECTORY_SEPARATOR.'.claude' : '');
+
+        return new self($directory === '' ? '' : $directory.DIRECTORY_SEPARATOR.'.credentials.json');
+    }
+
+    public function token(): string
+    {
+        if ($this->path === '') {
+            throw new ReadFailed('cannot locate the credential file: neither CLAUDE_CONFIG_DIR nor a home directory is set');
+        }
+        if (! is_file($this->path)) {
+            throw new ReadFailed("the harness has no credential file at {$this->path}");
+        }
+        $stored = @file_get_contents($this->path);
+        if ($stored === false) {
+            throw new ReadFailed("could not read the credential file at {$this->path}");
+        }
+
+        return KeychainCredentials::tokenFrom($stored);
+    }
+}
+
 /** curl, with the headers (and so the token) passed on stdin so they stay off the command line. */
 final class CurlTransport implements HttpTransport
 {

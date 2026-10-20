@@ -6,15 +6,19 @@ declare(strict_types=1);
 use FleetKit\Pace\Cli;
 use FleetKit\Pace\ClaudeUsageReader;
 use FleetKit\Pace\CurlTransport;
+use FleetKit\Pace\FileCredentials;
 use FleetKit\Pace\KeychainCredentials;
 use FleetKit\Pace\UnsupportedReader;
 
 require dirname(__DIR__).'/vendor/autoload.php';
 
-// The credential location is measured on macOS only; elsewhere `read` answers "unsupported on this platform".
-$reader = PHP_OS_FAMILY === 'Darwin'
-    ? new ClaudeUsageReader(new KeychainCredentials, new CurlTransport)
-    : new UnsupportedReader;
+// The credential location is measured on Windows (a file) and macOS (the keychain); elsewhere `read`
+// answers "unsupported on this platform".
+$reader = match (PHP_OS_FAMILY) {
+    'Darwin' => new ClaudeUsageReader(new KeychainCredentials, new CurlTransport),
+    'Windows' => new ClaudeUsageReader(FileCredentials::default(), new CurlTransport),
+    default => new UnsupportedReader,
+};
 
 $shell = function (string $command, array $env): string {
     // stderr goes to the null device: an undrained pipe would block a chatty command forever.
