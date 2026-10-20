@@ -12,7 +12,8 @@ function stageToml(string $seats = '', string $machines = '', string $top = ''):
 
 function seatToml(string $slot = 'a', string $extra = ''): string
 {
-    return <<<TOML
+    // A checkout that converts line endings must not change what the tests expect.
+    return str_replace("\r\n", "\n", <<<TOML
         [[seat]]
         machine = "m"
         slot = "{$slot}"
@@ -21,7 +22,7 @@ function seatToml(string $slot = 'a', string $extra = ''): string
         role = "build"
         {$extra}
 
-        TOML;
+        TOML);
 }
 
 it('reads the shipped example', function () {
