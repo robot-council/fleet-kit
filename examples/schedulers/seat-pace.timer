@@ -1,0 +1,10 @@
+# systemd user timer for seat-pace.service: every 55 minutes.
+[Unit]
+Description=Run seat-pace every 55 minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=55min
+
+[Install]
+WantedBy=timers.target

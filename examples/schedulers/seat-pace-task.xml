@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-16"?>
+<!-- Task Scheduler: one `seat-pace watch` tick every 55 minutes.
+     Replace C:\path\to\fleet-kit, then: schtasks /Create /TN seat-pace /XML seat-pace-task.xml
+     Note: `seat-pace read` answers "unsupported on this platform" on Windows until the credential
+     location is measured, so this task logs nothing there yet. -->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <Triggers>
+    <TimeTrigger>
+      <Repetition>
+        <Interval>PT55M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+      <StartBoundary>2026-01-01T00:00:00</StartBoundary>
+      <Enabled>true</Enabled>
+    </TimeTrigger>
+  </Triggers>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <StartWhenAvailable>true</StartWhenAvailable>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>pwsh</Command>
+      <Arguments>-NoProfile -File C:\path\to\fleet-kit\bin\seat-pace.ps1 watch --once --config C:\path\to\fleet-kit\seats.toml</Arguments>
+    </Exec>
+  </Actions>
+</Task>

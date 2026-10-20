@@ -1,0 +1,43 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+use FleetKit\Pace\Cli;
+use FleetKit\Pace\ClaudeUsageReader;
+use FleetKit\Pace\CurlTransport;
+use FleetKit\Pace\KeychainCredentials;
+use FleetKit\Pace\UnsupportedReader;
+
+require dirname(__DIR__).'/vendor/autoload.php';
+
+// The credential location is measured on macOS only; elsewhere `read` answers "unsupported on this platform".
+$reader = PHP_OS_FAMILY === 'Darwin'
+    ? new ClaudeUsageReader(new KeychainCredentials, new CurlTransport)
+    : new UnsupportedReader;
+
+$shell = function (string $command, array $env): string {
+    // stderr goes to the null device: an undrained pipe would block a chatty command forever.
+    $null = ['file', PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null', 'w'];
+    $process = proc_open($command, [1 => ['pipe', 'w'], 2 => $null], $pipes, null, $env === [] ? null : $env + getenv());
+    if (! is_resource($process)) {
+        return '';
+    }
+    $out = (string) stream_get_contents($pipes[1]);
+    fclose($pipes[1]);
+    proc_close($process);
+
+    return $out;
+};
+
+$cli = new Cli(
+    out: fn (string $line) => print $line."\n",
+    err: fn (string $line) => fwrite(STDERR, $line."\n"),
+    reader: $reader,
+    clock: fn () => new DateTimeImmutable,
+    shell: $shell,
+    sleep: fn (int $seconds) => sleep($seconds),
+    machine: getenv('SEAT_PACE_MACHINE') ?: (string) gethostname(),
+);
+
+exit($cli->run(array_slice($argv, 1), getenv('FLEET_KIT_CONFIG') ?: null));

@@ -1,0 +1,9 @@
+# systemd user unit: one `seat-pace watch` tick. Pair it with seat-pace.timer.
+# Copy both to ~/.config/systemd/user/, replace /path/to/fleet-kit, then:
+#   systemctl --user enable --now seat-pace.timer
+[Unit]
+Description=seat-pace: read, log and judge a usage allowance
+
+[Service]
+Type=oneshot
+ExecStart=/path/to/fleet-kit/bin/seat-pace watch --once --config /path/to/fleet-kit/seats.toml
