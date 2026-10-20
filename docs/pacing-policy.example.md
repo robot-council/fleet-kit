@@ -1,7 +1,7 @@
 # Pacing policy (template)
 
 `seat-pace` reports `UNDER` or `OVER`. What your fleet does about it is a policy of your own, and it
-belongs in your fork. Copy this file, fill in the levers, and delete what does not apply. The kit
+belongs in your private configuration repository, not in fleet-kit. Copy this file, fill in the levers, and delete what does not apply. The kit
 never acts on a verdict.
 
 ## Thresholds

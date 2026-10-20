@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <!-- Task Scheduler: one `seat-pace watch` tick every 55 minutes.
      Replace C:\path\to\fleet-kit, then: schtasks /Create /TN seat-pace /XML seat-pace-task.xml
-     Note: `seat-pace read` answers "unsupported on this platform" on Windows until the credential
-     location is measured, so this task logs nothing there yet. -->
+     `seat-pace read` works on Windows: it reads Claude Code's credential file (docs/pacing.md). Run
+     `seat-pace read` once by hand first. The .ps1 wrapper suits a checkout; for a Composer install point the command at the seat-pace
+     proxy, and --config at the seats file in your private configuration repository. -->
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
   <Triggers>
     <TimeTrigger>
@@ -21,7 +22,7 @@
   <Actions Context="Author">
     <Exec>
       <Command>pwsh</Command>
-      <Arguments>-NoProfile -File C:\path\to\fleet-kit\bin\seat-pace.ps1 watch --once --config C:\path\to\fleet-kit\seats.toml</Arguments>
+      <Arguments>-NoProfile -File C:\path\to\fleet-kit\bin\seat-pace.ps1 watch --once --config C:\path\to\fleet-config\seats.toml</Arguments>
     </Exec>
   </Actions>
 </Task>

@@ -1,4 +1,5 @@
-# Example seats file. It holds no real data: copy it to seats.toml in your fork and edit.
+# Example seats file. It holds no real data: copy it to seats.toml in your private
+# configuration repository (not a fork of fleet-kit) and edit.
 # seat-pace reads the [[account]] tables. seat-stage reads channel, [[machine]] and [[seat]].
 #
 #   bin/seat-stage stage office --dry-run --config examples/seats.toml

@@ -1,6 +1,6 @@
 {
     "name": "robot-council/fleet-kit",
-    "description": "Forkable operator tools for a Robot Council fleet: seat-stage stages a machine's seats, seat-pace paces a usage allowance",
+    "description": "Operator tools for a Robot Council fleet: seat-stage stages a machine's seats, seat-pace paces a usage allowance",
     "type": "library",
     "keywords": ["robot-council", "fleet", "claude-code", "tmux", "psmux", "usage", "pacing"],
     "homepage": "https://github.com/robot-council/fleet-kit",

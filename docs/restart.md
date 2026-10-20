@@ -11,8 +11,9 @@ changes nothing.
 
 1. `composer install` (PHP 8.4 or later), and install the multiplexer: tmux on macOS and Linux,
    psmux on Windows.
-2. Copy `examples/seats.toml` to `seats.toml` and edit it. Pass another path with `--config` or
-   `FLEET_KIT_CONFIG`. The same file holds seat-pace's `[[account]]` tables.
+2. Copy `examples/seats.toml` into your private configuration repository as `seats.toml` and edit it.
+   Point `FLEET_KIT_CONFIG` (or `--config`) at it. The same file holds seat-pace's `[[account]]` tables.
+   See [Getting started](getting-started.md).
 3. `bin/seat-stage check <machine>` reports every reason staging would fail.
 4. `bin/seat-stage stage <machine> --dry-run` (`seat-stage` if installed with Composer) prints each seat's exact command and first prompt.
 5. `bin/seat-stage stage <machine>` builds the session. Attach with `tmux attach -t <session>`
