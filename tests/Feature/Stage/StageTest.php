@@ -268,3 +268,54 @@ it('says the pane could not be read, not that the prompt may be acknowledged, wh
         ->not->toContain('may already be acknowledged')
         ->and(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([]);
 });
+
+it('answers the channels warning under psmux with the same plain targets, and no =window form', function () {
+    $screens = [CHANNELS_SCREEN, "Channels (experimental) messages from server:robot-council inject directly in this session\n"];
+    $fleet = Fleet::parse(stageToml(seatToml('a'), "[[machine]]\nname = \"m\"\nmultiplexer = \"psmux\"\nstart = \"now\"\nconfirm_channels = true\n"));
+    [$stager, $shell, $out] = stager($fleet, [[['psmux', 'capture-pane'], function () use (&$screens) {
+        return new Result(0, count($screens) > 1 ? array_shift($screens) : $screens[0]);
+    }]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+    $keys = array_values(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'));
+    $captures = array_values(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'capture-pane'));
+
+    expect($captures[0][0])->toBe(['psmux', 'capture-pane', '-p', '-t', 'fleet:some-repo-a'])
+        ->and($keys[0][0])->toBe(['psmux', 'send-keys', '-t', 'fleet:some-repo-a', 'Enter'])
+        ->and(implode("\n", $out->getArrayCopy()))->toContain('confirmed the channels prompt for m/a');
+});
+
+it('finds the channels warning in a pane that wraps it mid-word', function () {
+    // Measured in fleet-kit#4: a 36-column pane under psmux split "channels" into "chann" and "els".
+    $wrapped = "  WARNING: Loading development chann\nels\n\n  Channels: server:robot-council\n\n  ❯ 1. I am using this for local de\nvelopment\n    2. Exit\n";
+    $screens = [$wrapped, "Channels (experimental) messages from server:robot-council inject directly in this session\n"];
+    $fleet = confirmFleet();
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], function () use (&$screens) {
+        return new Result(0, count($screens) > 1 ? array_shift($screens) : $screens[0]);
+    }]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toHaveCount(1)
+        ->and(implode("\n", $out->getArrayCopy()))->toContain('confirmed the channels prompt for m/a');
+});
+
+it('finds the folder-trust screen when it is wrapped, and still leaves it alone', function () {
+    $fleet = confirmFleet();
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, " Quick safety check: Is this a project you created or one\n you trust? (Like your own code)\n ❯ No, exit\n   Yes, I trust this folder\n")]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
+        ->and(implode("\n", $out->getArrayCopy()))->toContain('left for the operator');
+});
+
+it('never presses a key when the trust text is on screen with the channels warning', function () {
+    $fleet = confirmFleet();
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, " Is this a project you created or one you trust?\n ❯ No, exit\n   Yes, I trust this folder\n".CHANNELS_SCREEN)]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
+        ->and(implode("\n", $out->getArrayCopy()))->toContain('left for the operator');
+});

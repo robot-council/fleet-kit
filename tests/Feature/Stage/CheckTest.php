@@ -113,10 +113,10 @@ it('does not check the server of a plugin channel', function () {
     expect($report->ok())->toBeTrue()->and($report->notes)->toContain('m/a: the channel is a plugin entry; its MCP server was not checked');
 });
 
-it('refuses confirm_channels under psmux, where capture-pane is unmeasured', function () {
+it('accepts confirm_channels under psmux, whose capture-pane was measured in fleet-kit#4', function () {
     $report = check(machine: "multiplexer = \"psmux\"\nconfirm_channels = true\nstart = \"now\"");
 
-    expect($report->failures)->toContain('confirm_channels needs capture-pane, which is unmeasured under psmux (fleet-kit#4); turn it off for this machine');
+    expect($report->ok())->toBeTrue();
 });
 
 it('notes that confirm_channels has no effect in enter mode', function () {

@@ -37,7 +37,8 @@ final class ProcessShell implements Shell
 
 /**
  * A tmux-compatible multiplexer: tmux on macOS and Linux, psmux on Windows. Both are driven with
- * the same argument lists. Whether `capture-pane` works under psmux is unmeasured (fleet-kit#4).
+ * the same argument lists, except that tmux is given `=name` exact-match targets and psmux the plain
+ * names: psmux does not prefix-match a session and rejects `=window` (fleet-kit#4, psmux 3.3.8).
  */
 final readonly class Multiplexer
 {
@@ -48,19 +49,13 @@ final readonly class Multiplexer
         return new self($machine->multiplexer);
     }
 
-    /** Whether the pane can be read back; the channels-prompt confirmation depends on it. */
-    public function canCapture(): bool
-    {
-        return $this->binary === 'tmux';
-    }
-
     /** @return list<string> */
     public function hasSession(string $session): array
     {
         return [$this->binary, 'has-session', '-t', $this->session($session)];
     }
 
-    /** tmux matches a session name by prefix unless it is written `=name`; psmux is assumed to take the plain name. */
+    /** tmux matches a session name by prefix unless it is written `=name`; psmux does not prefix-match and rejects `=window`, so it gets the plain names (fleet-kit#4). */
     private function session(string $session): string
     {
         return $this->binary === 'tmux' ? "={$session}" : $session;

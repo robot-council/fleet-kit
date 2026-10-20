@@ -82,8 +82,8 @@ not looked at again when Enter is pressed. `confirm_channels` runs after every w
 
 Two screens can still wait for a person: the **folder trust** screen for a directory Claude Code has
 not seen, and the **channels warning** ("Loading development channels … 1. I am using this for local
-development"). With `confirm_channels = true` (tmux only, and not in `enter` mode) `seat-stage` reads
-the pane, matches the exact channels text, chooses the local-development option, and reads the pane
+development"). With `confirm_channels = true` (tmux and psmux, and not in `enter` mode) `seat-stage` reads
+the pane, matches the channels text (whitespace ignored, so a wrapped line still matches), chooses the local-development option, and reads the pane
 again to see it cleared. It never answers the folder-trust screen: it prints what it saw and leaves it
 for you. The channels warning did not appear on a repeat run in a directory where it had already been
 answered, so a missing prompt is reported, not treated as a failure.
@@ -109,7 +109,7 @@ not already existing (staging refuses to touch one); each checkout existing; eac
 having a transcript under `~/.claude/projects`; no live process already holding a conversation
 (except in `when-free`, which waits); the channel's MCP server listed by `claude mcp list` in each
 checkout, with its `--project` and `--harness`, where it sets them, agreeing with the seats file;
-`confirm_channels` not asked of psmux; and `when-free` only where holders can be detected. Work
+and `when-free` only where holders can be detected. Work
 locations being unique per machine is checked when the file is read.
 
 ## `collect`
@@ -120,18 +120,40 @@ one after `conversation = "x"`) and layout stay. It records nothing for a seat w
 or with two candidates, never records one id for two seats, and skips an id the seats file would refuse.
 `--dry-run` prints what it would record and writes nothing. It writes the file before it prints "recorded".
 
+## Measured under psmux
+
+Windows 11 (10.0.26200), psmux 3.3.8 (66cf613, 2026-08-18), Claude Code 2.1.304, fleet-kit#4. psmux is
+driven with the same `new-session`, `new-window`, `send-keys` and `capture-pane` arguments as tmux, with
+two differences, both handled: it does not prefix-match a session name, and it rejects the `=window`
+form (`can't find window: =w1`, printed with exit 0), so it is given plain `session:window` targets.
+
+- `capture-pane -p -t session:window` reads a window, exit 0, in UTF-8. Thirty reads of an unchanging
+  window were byte-identical. A window created a moment ago reads as empty, not as an error.
+- It read the real folder-trust screen and the real channels warning of Claude Code, from a throwaway
+  session in an empty folder that never received a prompt. `send-keys Enter` chose the highlighted
+  "I am using this for local development", and the next read showed the Claude Code screen.
+- A pane narrower than a line wraps it, even in the middle of a word, and `capture-pane -J` does not join
+  it again. Attaching a client also re-wraps the text. `seat-stage` therefore matches the screens with
+  whitespace ignored.
+- A window whose command exits closes, and reading it then fails with exit 1; `seat-stage` reports that as
+  "could not read the pane".
+- The command text `seat-stage` builds for Windows (the environment scrub, then `claude '...'`, with
+  doubled single quotes) runs under psmux as written.
+- `send-keys -l` with `Enter` typed into an idle window ran the command, which is how `when-free` starts a
+  seat.
+
+So `confirm_channels` is supported under psmux. Its shell was PowerShell throughout.
+
 ## Unmeasured
 
-- **tmux target syntax.** A session is matched exactly with `=name` and a window with `=window`. That is
-  tmux's own exact-match form, but it was not run here; psmux is given the plain names.
-- **psmux.** Whether `capture-pane` works under it (fleet-kit#4), and whether it takes the same
-  `new-session`, `new-window` and `send-keys` arguments as tmux. The commands for both come from one
-  builder on the assumption that it does. Its shell is assumed to be PowerShell.
+- **tmux target syntax.** tmux is given `=name` for a session and `=window` for a window. That is tmux's
+  own exact-match form, but it was not run here.
 - **macOS and Linux.** The `sessions/<pid>.json` file and its `procStart` form were measured on
   Windows only. The macOS comparison follows the same rule; Linux is not read.
 - **`claude mcp list`.** The `<name>: <command and arguments> - <status>` line format was seen on one
   Windows machine, where the entry sets neither `--project` nor `--harness`.
 - **The order of flags** other than the prompt-first form, such as `--resume` together with
   `--remote-control`, beyond what was run in fleet-kit#7.
-- **Live staging.** Everything here is tested against recorded and faked multiplexer output. No
-  multiplexer session was started in building it.
+- **Live staging.** `seat-stage` itself is tested against recorded and faked multiplexer output, and has
+  not been run against a live multiplexer. The psmux behaviour above was measured by hand with the same
+  arguments.
