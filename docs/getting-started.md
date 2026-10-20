@@ -65,7 +65,7 @@ $env:FLEET_KIT_CONFIG = "C:/Users/you/fleet-config/seats.toml"
 [Environment]::SetEnvironmentVariable('FLEET_KIT_CONFIG', 'C:/Users/you/fleet-config/seats.toml', 'User')
 ```
 
-Or pass `--config <file>` to any command. A scheduled job does not inherit your shell's environment: the scheduler examples pass `--config` explicitly. Relative paths in the file, such as `log = "seat-pace.tsv"`, resolve against the seats file's own directory, so the log lands in your configuration repository (ignore it there, or commit it, as you decide). In the seats file write Windows paths with forward slashes or as a `'literal string'`.
+Or pass `--config <file>` to any command. A scheduled job does not inherit your shell's environment: the scheduler examples pass `--config` explicitly. A relative `log` path, such as `log = "seat-pace.tsv"`, resolves against the seats file's own directory, so the log lands in your configuration repository (ignore it there, or commit it, as you decide); write `checkout` and any other path as an absolute path. In the seats file write Windows paths with forward slashes or as a `'literal string'`.
 
 ## 5. Stage a machine's seats with `seat-stage`
 
@@ -75,9 +75,9 @@ Starting multiplexer and Claude Code sessions is your act: `check` and `--dry-ru
 2. **`seat-stage stage <machine> --dry-run`** prints each seat's exact multiplexer command, shell command and first prompt. Read them: this is what will run.
 3. **`seat-stage stage <machine>`** builds one multiplexer session with a window per seat. For a first run keep `start = "enter"` in the seats file, so each window waits for you to press Enter. Attach with `tmux attach -t <session>` (`psmux attach -t <session>` on Windows) and start the seats yourself.
 
-Two screens can wait for you in a new window: Claude Code's **folder-trust** screen for a directory it has not seen (`seat-stage` never answers it), and the **channels warning** for the development-channel flag. With `confirm_channels = true` `seat-stage` answers the channels warning and nothing else. Details, the three start modes (`enter`, `now`, `when-free`) and what is measured are in [Restarting a machine's seats](restart.md).
+Two screens can wait for you in a new window: Claude Code's **folder-trust** screen for a directory it has not seen (`seat-stage` never answers it), and the **channels warning** for the development-channel flag. On a first run (`enter` mode) you answer both screens yourself: `confirm_channels` does not run in `enter` mode. In the other modes, with `confirm_channels = true`, `seat-stage` answers the channels warning and nothing else. Details, the three start modes (`enter`, `now`, `when-free`) and what is measured are in [Restarting a machine's seats](restart.md).
 
-A new seat has no `conversation` yet, so its first prompt asks it to `join` the fleet. Once seats are running, `seat-stage collect <machine>` records their conversation ids in the seats file, and the next restart *resumes* them rather than starting new ones. Commit that change to your configuration repository. (`collect` reads Claude Code's live session files, which are readable on Windows and, by the same rule, on macOS; not on Linux.)
+A new seat has no `conversation` yet, so its first prompt asks it to `join` the fleet. Once seats are running, `seat-stage collect <machine>` records their conversation ids in the seats file, and the next restart *resumes* them rather than starting new ones. Commit that change to your configuration repository. (`collect` reads Claude Code's live session files, which are readable on Windows and, by the same rule, on macOS (unmeasured there); not on Linux.)
 
 ## 6. Pace the allowance with `seat-pace`
 

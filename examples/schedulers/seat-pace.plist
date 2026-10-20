@@ -13,7 +13,7 @@
         <string>watch</string>
         <string>--once</string>
         <string>--config</string>
-        <string>/path/to/fleet-kit/seats.toml</string>
+        <string>/path/to/fleet-config/seats.toml</string>
     </array>
     <key>StartInterval</key>
     <integer>3300</integer>
