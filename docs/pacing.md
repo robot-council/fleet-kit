@@ -66,12 +66,25 @@ The usage adapter for Claude reads the token from the harness's own credential s
 `curl` on stdin, so it never appears on a command line.
 
 - **macOS:** reads the macOS keychain.
-- **Windows and Linux:** `read` answers "unsupported on this platform" until the credential location is
-  measured on them. `pace --used --now` works everywhere.
+- **Windows:** reads `.credentials.json` in Claude Code's data directory, `%USERPROFILE%\.claude`, or
+  `CLAUDE_CONFIG_DIR` where that is set. Measured on Windows 11 (10.0.26200) with Claude Code 2.1.304
+  (fleet-kit#5): the file holds a `claudeAiOauth` object with `accessToken`, `refreshToken`, `expiresAt`,
+  `refreshTokenExpiresAt`, `scopes`, `subscriptionType`, `subscriptionTypeSource` and `rateLimitTier`, the
+  shape the keychain reader already expects (the keychain item itself is not verified), and also entries
+  for unrelated MCP servers. Only
+  `claudeAiOauth.accessToken` is read; no message, log or test carries the file's contents, and the
+  tests use a synthetic file with fake values.
+- **Linux:** `read` answers "unsupported on this platform": no Linux machine has been measured.
+  `pace --used --now` works everywhere.
 
-The endpoint, its response shape and the keychain item are not verified against a live account in this
-repository. The tests replay recorded responses, and the keychain and `curl` paths themselves are not
-run by them.
+The token goes to `curl` on stdin on every platform, never on a command line or in an environment
+variable.
+
+Not verified: the endpoint and its response shape against a live account (the tests replay recorded
+responses, and the keychain, the credential file on a real disk and `curl` are not run by them); what
+happens when the access token has expired (the file records an expiry, but how the endpoint answers
+an expired token, and whether Claude Code has refreshed the file by then, were not measured; `read`
+would report the failed request); and `CLAUDE_CONFIG_DIR`, which was not set where this was measured.
 
 ## What to do when OVER
 

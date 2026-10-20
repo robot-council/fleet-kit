@@ -5,6 +5,7 @@ declare(strict_types=1);
 use FleetKit\Pace\ClaudeUsageReader;
 use FleetKit\Pace\CredentialStore;
 use FleetKit\Pace\CurlTransport;
+use FleetKit\Pace\FileCredentials;
 use FleetKit\Pace\HttpTransport;
 use FleetKit\Pace\KeychainCredentials;
 use FleetKit\Pace\ReadFailed;
@@ -68,3 +69,75 @@ it('refuses to build a curl config from a token or url holding control character
 it('answers "unsupported on this platform" where the credential location is unmeasured', function () {
     (new UnsupportedReader)->read(account());
 })->throws(UnsupportedPlatform::class, 'unsupported on this platform');
+
+// The Windows credential file (fleet-kit#5) is replaced here by a synthetic file with fake values in the
+// shape measured on Windows: key names only, never the real file's contents.
+
+function credentialFile(string $contents): string
+{
+    $path = sys_get_temp_dir().'/seat-pace-credentials-'.bin2hex(random_bytes(4)).'.json';
+    file_put_contents($path, $contents);
+
+    return $path;
+}
+
+it('reads the access token from a credential file, and only that', function () {
+    $token = (new FileCredentials(credentialFile(recorded('credentials-claude-windows.json'))))->token();
+
+    expect($token)->toBe('test-token-not-a-credential');
+});
+
+it('says where the credential file is missing, and reads nothing', function () {
+    $path = sys_get_temp_dir().'/seat-pace-no-such-file.json';
+
+    expect(fn () => (new FileCredentials($path))->token())->toThrow(ReadFailed::class, "no credential file at {$path}");
+});
+
+it('never puts the file\'s contents in an error', function (string $contents) {
+    try {
+        (new FileCredentials(credentialFile($contents)))->token();
+        $message = 'no error';
+    } catch (ReadFailed $e) {
+        $message = $e->getMessage();
+    }
+
+    expect($message)->not->toBe('no error')
+        ->not->toContain('fake-mcp-token-not-real')->not->toContain('fake-mcp-client-secret-not-real')
+        ->not->toContain('fake-refresh-not-real')->not->toContain('test-token-not-a-credential');
+})->with([
+    'a usable-looking token beside an empty access token' => ['{"claudeAiOauth": {"accessToken": ""}, "other": "test-token-not-a-credential"}'],
+    'a non-string access token with the real-looking one elsewhere' => ['{"claudeAiOauth": {"accessToken": 12345, "refreshToken": "test-token-not-a-credential"}}'],
+    'no claudeAiOauth, other secrets present' => ['{"mcpOAuth": {"s": {"accessToken": "fake-mcp-token-not-real"}}, "mcpOAuthClientConfig": {"s": {"clientSecret": "fake-mcp-client-secret-not-real"}}}'],
+    'access token missing' => ['{"claudeAiOauth": {"refreshToken": "fake-refresh-not-real"}}'],
+    'not json' => ['fake-refresh-not-real'],
+]);
+
+it('uses CLAUDE_CONFIG_DIR when set, else the user profile\'s .claude', function () {
+    $dir = sys_get_temp_dir().'/seat-pace-config-'.bin2hex(random_bytes(4));
+    mkdir($dir);
+    file_put_contents($dir.'/.credentials.json', recorded('credentials-claude-windows.json'));
+
+    $before = getenv('CLAUDE_CONFIG_DIR');
+    putenv("CLAUDE_CONFIG_DIR={$dir}");
+    try {
+        expect(FileCredentials::default()->token())->toBe('test-token-not-a-credential');
+    } finally {
+        $before === false ? putenv('CLAUDE_CONFIG_DIR') : putenv("CLAUDE_CONFIG_DIR={$before}");
+    }
+});
+
+it('says so, rather than guess a path, when no directory and no home is known', function () {
+    $saved = [getenv('CLAUDE_CONFIG_DIR'), getenv('USERPROFILE'), getenv('HOME')];
+    putenv('CLAUDE_CONFIG_DIR');
+    putenv('USERPROFILE');
+    putenv('HOME');
+    try {
+        $reader = FileCredentials::default();
+    } finally {
+        foreach (['CLAUDE_CONFIG_DIR', 'USERPROFILE', 'HOME'] as $i => $name) {
+            $saved[$i] === false ? putenv($name) : putenv("{$name}={$saved[$i]}");
+        }
+    }
+
+    expect(fn () => $reader->token())->toThrow(ReadFailed::class, 'neither CLAUDE_CONFIG_DIR nor a home directory');
+});
