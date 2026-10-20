@@ -55,7 +55,7 @@ final readonly class Multiplexer
         return [$this->binary, 'has-session', '-t', $this->session($session)];
     }
 
-    /** tmux matches a session name by prefix unless it is written `=name`; psmux is assumed to take the plain name. */
+    /** tmux matches a session name by prefix unless it is written `=name`; psmux does not prefix-match and rejects `=window`, so it gets the plain names (fleet-kit#4). */
     private function session(string $session): string
     {
         return $this->binary === 'tmux' ? "={$session}" : $session;

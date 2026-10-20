@@ -309,3 +309,13 @@ it('finds the folder-trust screen when it is wrapped, and still leaves it alone'
     expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
         ->and(implode("\n", $out->getArrayCopy()))->toContain('left for the operator');
 });
+
+it('never presses a key when the trust text is on screen with the channels warning', function () {
+    $fleet = confirmFleet();
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, " Is this a project you created or one you trust?\n ❯ No, exit\n   Yes, I trust this folder\n".CHANNELS_SCREEN)]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
+        ->and(implode("\n", $out->getArrayCopy()))->toContain('left for the operator');
+});

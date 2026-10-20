@@ -15,7 +15,7 @@ multiplexer = "tmux"
 session = "fleet"
 start = "enter"            # enter waits for a keypress, now starts at once, when-free waits for a free conversation
 start_gap = "5s"           # when-free: pause between starts
-confirm_channels = false   # true answers the channels warning for you; needs capture-pane (tmux, not psmux)
+confirm_channels = false   # true answers the channels warning for you; reads the pane with capture-pane (tmux and psmux)
 remote_control = true      # pass --remote-control <name>
 
 [[machine]]

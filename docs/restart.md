@@ -83,7 +83,7 @@ not looked at again when Enter is pressed. `confirm_channels` runs after every w
 Two screens can still wait for a person: the **folder trust** screen for a directory Claude Code has
 not seen, and the **channels warning** ("Loading development channels … 1. I am using this for local
 development"). With `confirm_channels = true` (tmux and psmux, and not in `enter` mode) `seat-stage` reads
-the pane, matches the exact channels text, chooses the local-development option, and reads the pane
+the pane, matches the channels text (whitespace ignored, so a wrapped line still matches), chooses the local-development option, and reads the pane
 again to see it cleared. It never answers the folder-trust screen: it prints what it saw and leaves it
 for you. The channels warning did not appear on a repeat run in a directory where it had already been
 answered, so a missing prompt is reported, not treated as a failure.
