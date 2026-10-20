@@ -10,7 +10,7 @@ use FleetKit\Stage\PsClock;
 use FleetKit\Stage\UnknownClock;
 use FleetKit\Stage\WindowsClock;
 
-require dirname(__DIR__).'/vendor/autoload.php';
+require __DIR__.'/autoload.php';
 
 $shell = new ProcessShell;
 

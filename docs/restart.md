@@ -14,7 +14,7 @@ changes nothing.
 2. Copy `examples/seats.toml` to `seats.toml` and edit it. Pass another path with `--config` or
    `FLEET_KIT_CONFIG`. The same file holds seat-pace's `[[account]]` tables.
 3. `bin/seat-stage check <machine>` reports every reason staging would fail.
-4. `bin/seat-stage stage <machine> --dry-run` prints each seat's exact command and first prompt.
+4. `bin/seat-stage stage <machine> --dry-run` (`seat-stage` if installed with Composer) prints each seat's exact command and first prompt.
 5. `bin/seat-stage stage <machine>` builds the session. Attach with `tmux attach -t <session>`
    (`psmux attach` on Windows).
 

@@ -1,0 +1,7 @@
+# Keep the dist archive (what `composer require` installs) to what runs and what documents it.
+/tests export-ignore
+/.github export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/phpunit.xml export-ignore
+/composer.lock export-ignore
