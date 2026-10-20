@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    # One check per platform, so a failure names its platform.
+    name: tests (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          # composer.json requires ^8.4.
+          php-version: '8.4'
+          extensions: mbstring
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress
+
+      # The suite replays recorded fixtures: no credential, secret or usage endpoint is read.
+      - name: Run the tests
+        run: vendor/bin/pest --ci
+
+  # The one stable check name to require: it passes only if every platform passed.
+  ci-passed:
+    name: ci-passed
+    needs: tests
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every platform to pass
+        run: |
+          if [ "${{ needs.tests.result }}" != "success" ]; then
+            echo "tests: ${{ needs.tests.result }}"
+            exit 1
+          fi
