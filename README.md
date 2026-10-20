@@ -12,7 +12,17 @@ bin/seat-pace read | pace | log | watch
 
 PHP 8.4 or later. On Windows, `bin/seat-pace.ps1` is a thin wrapper.
 
-`seat-stage` is not built yet.
+## seat-stage
+
+Stages a machine's seats in a terminal multiplexer (tmux on macOS and Linux, psmux on Windows) and starts each one joined to the fleet. See [docs/restart.md](docs/restart.md).
+
+```
+bin/seat-stage stage office --dry-run --config examples/seats.toml   # print each seat's command and first prompt
+bin/seat-stage check office                                          # every reason staging would fail
+bin/seat-stage collect office                                        # record live conversation ids in the seats file
+```
+
+On Windows, `bin/seat-stage.ps1` is a thin wrapper.
 
 ## Tests
 

@@ -10,7 +10,7 @@
         "pestphp/pest": "^5.2.1"
     },
     "autoload": {
-        "classmap": ["lib/pace/"]
+        "classmap": ["lib/pace/", "lib/stage/"]
     },
     "autoload-dev": {
         "psr-4": {

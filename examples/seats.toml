@@ -1,5 +1,55 @@
 # Example seats file. It holds no real data: copy it to seats.toml in your fork and edit.
-# seat-pace reads the [[account]] tables. (seat-stage reads the seats; see its own docs.)
+# seat-pace reads the [[account]] tables. seat-stage reads channel, [[machine]] and [[seat]].
+#
+#   bin/seat-stage stage office --dry-run --config examples/seats.toml
+#   bin/seat-stage stage desk   --dry-run --config examples/seats.toml
+
+# The channel entry passed after --dangerously-load-development-channels: server:<name> or
+# plugin:<name>@<marketplace>. The flag takes tagged entries only (fleet-kit#7).
+channel = "server:robot-council"
+
+# A machine's staging settings. multiplexer is tmux (macOS, Linux) or psmux (Windows).
+[[machine]]
+name = "office"
+multiplexer = "tmux"
+session = "fleet"
+start = "enter"            # enter waits for a keypress, now starts at once, when-free waits for a free conversation
+start_gap = "5s"           # when-free: pause between starts
+confirm_channels = false   # true answers the channels warning for you; needs capture-pane (tmux, not psmux)
+remote_control = true      # pass --remote-control <name>
+
+[[machine]]
+name = "desk"
+multiplexer = "psmux"
+start = "now"
+
+# A seat is one Claude Code conversation in one checkout, joined to the fleet in a role.
+[[seat]]
+machine = "office"
+slot = "a"
+repository = "example-org/example-repo"
+checkout = "/home/example/src/example-repo"
+role = "build"
+work_location = "a"        # defaults to the slot; unique per machine; never a path
+capacity = 1               # optional
+# conversation = "00000000-0000-0000-0000-000000000000"   # `seat-stage collect` fills this in
+prompt = "Take new work only by placement."   # optional, appended to the first message
+
+[[seat]]
+machine = "office"
+slot = "ci"
+repository = "example-org/example-repo"
+checkout = "/home/example/src/example-repo-ci"
+role = "ci"
+after = ["a"]              # start after these slots
+conversation = "11111111-1111-1111-1111-111111111111"
+
+[[seat]]
+machine = "desk"
+slot = "primary"
+repository = "example-org/other-repo"
+checkout = "C:/src/other-repo"
+role = "build"
 
 # Where `seat-pace log` and `watch` append. Relative paths are relative to this file.
 log = "seat-pace.tsv"
