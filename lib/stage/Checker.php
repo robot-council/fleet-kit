@@ -57,12 +57,8 @@ final readonly class Checker
             $report->fail('claude is not on PATH');
         }
 
-        if ($machine->confirmChannels) {
-            if (! $multiplexer->canCapture()) {
-                $report->fail('confirm_channels needs capture-pane, which is unmeasured under psmux (fleet-kit#4); turn it off for this machine');
-            } elseif ($machine->start === 'enter') {
-                $report->note('confirm_channels has no effect in start = "enter": the window starts when the operator presses Enter');
-            }
+        if ($machine->confirmChannels && $machine->start === 'enter') {
+            $report->note('confirm_channels has no effect in start = "enter": the window starts when the operator presses Enter');
         }
 
         $detect = $this->holders->readable();

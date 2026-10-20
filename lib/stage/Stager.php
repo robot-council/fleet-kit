@@ -159,16 +159,16 @@ final readonly class Stager
             $seen = $capture->out;
             $unread = $capture->code === 0 ? null : $capture->code;
 
-            if (str_contains($seen, self::TRUST)) {
+            if (self::shows($seen, self::TRUST)) {
                 $screen = true;
                 break;
             }
-            if (str_contains($seen, self::CHANNELS[0]) && str_contains($seen, self::CHANNELS[1])) {
+            if (self::shows($seen, self::CHANNELS[0]) && self::shows($seen, self::CHANNELS[1])) {
                 $screen = true;
                 $this->run($multiplexer->key($machine->session, $seat->window(), 'Enter'), "could not answer the channels prompt for {$seat->label()}");
                 ($this->sleep)(2);
                 $after = $this->shell->run($multiplexer->capture($machine->session, $seat->window()))->out;
-                if (! str_contains($after, self::CHANNELS[1])) {
+                if (! self::shows($after, self::CHANNELS[1])) {
                     ($this->out)("confirmed the channels prompt for {$seat->label()}");
 
                     return;
@@ -197,6 +197,16 @@ final readonly class Stager
         foreach ($lines as $line) {
             ($this->out)('    | '.$line);
         }
+    }
+
+    /**
+     * Whether a pane shows a text. Whitespace is ignored on both sides: a pane narrower than the
+     * line wraps it, even in the middle of a word, and psmux's `capture-pane -J` does not join it
+     * again (measured in fleet-kit#4, a 36-column pane split "channels" into "chann" and "els").
+     */
+    private static function shows(string $pane, string $text): bool
+    {
+        return str_contains(preg_replace('/\s+/', '', $pane) ?? '', preg_replace('/\s+/', '', $text) ?? '');
     }
 
     /** @param  list<string>  $argv */
