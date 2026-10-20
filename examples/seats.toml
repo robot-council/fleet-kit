@@ -1,0 +1,24 @@
+# Example seats file. It holds no real data: copy it to seats.toml in your fork and edit.
+# seat-pace reads the [[account]] tables. (seat-stage reads the seats; see its own docs.)
+
+# Where `seat-pace log` and `watch` append. Relative paths are relative to this file.
+log = "seat-pace.tsv"
+
+# An allowance belongs to an account, not to a seat: every seat on the account bills the same one.
+[[account]]
+name = "main"
+harness = "claude"        # the adapter that reads this allowance
+machine = "office"        # the machine whose login can read it; set SEAT_PACE_MACHINE to override the hostname
+timezone = "America/Chicago"
+reset = "Mon 12:00"       # the configured reset is authoritative; the endpoint's resets_at is only a cross-check
+hours = "working"         # "working" draws the line over working hours, "clock" over every hour
+working_days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+working_hours = "09:00-17:00"
+dead_band = 0             # percentage points over the line before the verdict turns OVER
+
+# Optional. A command whose output goes in the log's `extra` column, e.g. parked and unparked seats.
+# log_extra = "./count-parked-seats"
+
+# Optional. Run by `watch` when the verdict changes. It gets SEAT_PACE_ACCOUNT, SEAT_PACE_VERDICT
+# and SEAT_PACE_PREVIOUS in its environment. The kit never acts on a verdict itself.
+# on_change = "./notify-the-operator"

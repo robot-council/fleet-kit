@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- launchd: runs one `seat-pace watch` tick every 55 minutes. Copy to ~/Library/LaunchAgents/,
+     replace /path/to/fleet-kit, then `launchctl load` it. -->
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>org.example.seat-pace</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/path/to/fleet-kit/bin/seat-pace</string>
+        <string>watch</string>
+        <string>--once</string>
+        <string>--config</string>
+        <string>/path/to/fleet-kit/seats.toml</string>
+    </array>
+    <key>StartInterval</key>
+    <integer>3300</integer>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StandardErrorPath</key>
+    <string>/tmp/seat-pace.err</string>
+</dict>
+</plist>

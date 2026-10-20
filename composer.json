@@ -1,0 +1,31 @@
+{
+    "name": "robot-council/fleet-kit",
+    "description": "Forkable operator tools for a Robot Council fleet: seat-stage stages a machine's seats, seat-pace paces a usage allowance",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.4"
+    },
+    "require-dev": {
+        "pestphp/pest": "^5.2.1"
+    },
+    "autoload": {
+        "classmap": ["lib/pace/"]
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "pest"
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}
