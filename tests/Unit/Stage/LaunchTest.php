@@ -22,13 +22,16 @@ it('leaves capacity out when it is not declared', function () {
     expect(Launch::prompt(launchFleet()->seats[0]))->not->toContain('capacity');
 });
 
-it('tells a resumed seat to heartbeat and never to leave', function () {
-    $prompt = Launch::prompt(launchFleet('conversation = "c-1"')->seats[0]);
+it('tells a resumed seat to heartbeat if joined, join if its session ended, and never to leave', function () {
+    $prompt = Launch::prompt(launchFleet("conversation = \"c-1\"
+capacity = 2")->seats[0]);
 
-    expect($prompt)->toContain('`presence_heartbeat`')
+    expect($prompt)->toContain('offers `presence_heartbeat`, you are still joined: call it')
         ->toContain('`session_move` with repository: org/some.repo, work_location: a')
-        ->toContain('Do not call `leave` or `join` again')
-        ->not->toContain('call the `join` tool');
+        ->toContain('offers only `join`, your session ended: call `join` with role: build, repository: org/some.repo, work_location: a, capacity: 2.')
+        ->toContain('Never call `leave`')
+        ->not->toContain('Do not call `leave` or `join`')
+        ->not->toContain('call `leave`.');
 });
 
 it('appends the seat\'s own prompt', function () {

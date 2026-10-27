@@ -47,9 +47,12 @@ Built from the seat's own fields.
 
 - A seat with no `conversation` is asked to call `join` with `role`, `repository`, `work_location`
   and, where declared, `capacity`.
-- A seat with a `conversation` is resumed, so it is already joined: it is told to call
-  `presence_heartbeat`, and `session_move` if its recorded work location differs. It is never told to
-  `leave` and rejoin, which releases the tasks it holds.
+- A seat with a `conversation` is resumed, and its fleet session may have ended: exiting a seat to
+  restage ends it (`session.gone`). It is told to call `presence_heartbeat` if the fleet's tools are
+  offered (it is still joined; `session_move` if its recorded work location differs), and to call
+  `join` with `role`, `repository`, `work_location` and, where declared, `capacity` if only `join` is
+  offered. A session that has ended holds nothing, so the join releases nothing.
+- No prompt tells a seat to `leave`, which releases the tasks it holds.
 - The seat's own `prompt` is appended.
 
 ## The command line

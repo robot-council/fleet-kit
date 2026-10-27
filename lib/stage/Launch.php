@@ -17,8 +17,10 @@ final class Launch
     private const LEAKED = '^(CLAUDE_CODE_|CLAUDECODE$|CLAUDE_PID$)';
 
     /**
-     * The first message a seat receives. A conversation that already exists is already joined, so
-     * it is told to heartbeat, never to leave: leaving releases the tasks it holds.
+     * The first message a seat receives. A resumed conversation may or may not still have its fleet
+     * session (exiting a seat to restage ends it), so every seat gets one prompt: heartbeat if the
+     * fleet's tools are there, join if only `join` is offered, never leave: leaving releases the
+     * tasks a seat holds, and a session that has ended holds none.
      */
     public static function prompt(Seat $seat): string
     {
@@ -26,9 +28,10 @@ final class Launch
 
         $first = $seat->conversation === null
             ? "Join the Robot Council fleet: call the `join` tool of the robot-council server with role: {$seat->role}, repository: {$seat->repository}, work_location: {$seat->workLocation}{$join}."
-            : 'You are resuming in the Robot Council fleet and are already joined. Call the `presence_heartbeat` tool of the robot-council server. '
-                ."If your recorded work location is not {$seat->workLocation}, call `session_move` with repository: {$seat->repository}, work_location: {$seat->workLocation}. "
-                .'Do not call `leave` or `join` again: leaving releases the tasks you hold.';
+            : 'You are resuming in the Robot Council fleet. If the robot-council server offers `presence_heartbeat`, you are still joined: call it, '
+                ."and call `session_move` with repository: {$seat->repository}, work_location: {$seat->workLocation} if your recorded work location differs. "
+                ."If it offers only `join`, your session ended: call `join` with role: {$seat->role}, repository: {$seat->repository}, work_location: {$seat->workLocation}{$join}. "
+                .'Never call `leave`: leaving releases the tasks you hold.';
 
         return trim($first.($seat->prompt === '' ? '' : ' '.preg_replace('/\s+/', ' ', $seat->prompt)));
     }

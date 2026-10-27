@@ -55,8 +55,8 @@ Test a policy against numbers before you trust it: `seat-pace pace --used 80 --n
 
 This is the design intent of `seat-stage`, and **it has not been exercised against a live fleet**: treat it as a claim to check on your first restart, not a guarantee.
 
-- A seat that has a `conversation` in the seats file is started with `claude --resume <conversation>`, so it keeps its conversation, its session in the fleet and the tasks placed on it.
-- It is told to call `presence_heartbeat`, and `session_move` if its recorded work location differs. It does not `join` again.
+- A seat that has a `conversation` in the seats file is started with `claude --resume <conversation>`, so it keeps its conversation. Its session in the fleet and the tasks placed on it survive only if the session is still alive when it resumes; an exited seat's session has ended.
+- It is told to call `presence_heartbeat` if the fleet's tools are offered, and `session_move` if its recorded work location differs. If only `join` is offered, its session ended with its process, so it is told to `join` with its declared role, repository and work location.
 - A seat with no `conversation` is new: its first prompt asks it to `join`.
 - **The kit never tells a seat to `leave`.** A restart is not a departure, and tasks stay placed.
 - `seat-stage` will not stage a conversation that a live process still holds, and `start = "when-free"` waits for a seat that is mid-turn rather than interrupting it.
