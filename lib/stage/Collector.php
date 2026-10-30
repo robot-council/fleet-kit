@@ -43,8 +43,8 @@ final readonly class Collector
         }
 
         foreach ($this->fleet->seatsOn($machine->name) as $seat) {
-            if ($seat->codex()) {
-                $lines[] = "{$seat->label()}: collect does not read Codex conversation ids; record \"conversation\" by hand";
+            if (! $seat->capabilities()->collect) {
+                $lines[] = "{$seat->label()}: collect does not read {$seat->capabilities()->title()} conversation ids; record \"conversation\" by hand";
 
                 continue;
             }

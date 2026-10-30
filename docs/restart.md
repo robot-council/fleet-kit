@@ -39,7 +39,9 @@ doubled like `'`.
 
 `work_location` defaults to the slot, is unique per machine, and is always passed explicitly,
 because a join without it from a primary checkout records `primary`. `remote_control` defaults to
-`<repo>/<machine>/<slot>`. `harness` is `claude` (the default) or `codex`; anything else is refused.
+`<repo>/<machine>/<slot>`. `harness` is `claude` (the default) or `codex`; anything else is refused. What each
+harness can do (its program, launch and resume arguments, flags, where `check` looks) is a table the code reads,
+`lib/stage/harnesses.toml`, not prose: a new harness is a new table there.
 
 ## Codex seats
 
@@ -49,8 +51,9 @@ Both forms were run live on macOS arm64 with `codex-cli 0.163.0` (fleet-kit#26 a
 Codex takes the prompt at launch, and `codex resume <id> "<prompt>"` reopens the conversation and runs the prompt
 as a new turn. What a Codex seat can *do* after either depends on its bridge arguments, below.
 
-- **Not woken by the fleet.** Codex has no channel notice (`openai/codex#15299`), so a staged Codex seat sits
-  at its prompt until its operator types to it. `--dangerously-load-development-channels`, `confirm_channels`
+- **Not woken by a channel notice.** Codex has none (`openai/codex#15299`), so a staged Codex seat sits at its
+  prompt until something prompts it. `codex queue --thread <id> --message <text>` woke an idle session from outside,
+  with no keypress (fleet-kit#6, macOS, codex-cli 0.163.0), but `seat-stage` does not run it. `--dangerously-load-development-channels`, `confirm_channels`
   and `--remote-control` do not apply, and none is passed.
 - **Enroll the machine for Codex first.** A machine enrolled only for Claude Code is refused at `join`. Wire the bridge
   into `~/.codex/config.toml` as `[mcp_servers.robot-council]` with `ROBOT_COUNCIL_HARNESS = "codex"` (the cli wiki's
@@ -67,8 +70,9 @@ as a new turn. What a Codex seat can *do* after either depends on its bridge arg
   entry:
   `args = ["mcp", "--auto-join", "--role=build", "--repository=<owner/name>", "--work-location=<work_location>"]`.
   With that, the fleet's tools are there from the first turn, on a fresh start and on a resume. The args can come
-  from `~/.codex/config.toml`, a per-checkout config, or `-c 'mcp_servers.robot-council.args=[...]'` at launch (which
-  costs Codex's shared background server: it warns that overrides need embedded mode).
+  from `~/.codex/config.toml`, a per-checkout config, or `-c 'mcp_servers.robot-council.args=[...]'` at launch. Prefer
+  the config file: a `-c` override runs the session embedded, without Codex's shared background server, and
+  `codex queue` goes through that server (queueing to an embedded session was not tested).
 - **`seat-stage` does not write those args, and its prompt still says `join`.** It starts the window with the
   prompt it builds for every seat. For a Codex seat whose bridge auto-joins, a fresh seat's "call `join`" has nothing
   to call (a resumed seat's heartbeat-or-join text should fit, since `presence_heartbeat` is offered, but that was not run). Say what the

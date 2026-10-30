@@ -10,9 +10,6 @@ use FleetKit\Pace\Toml;
 /** One seat: a Claude Code conversation in one checkout, with the role it joins the fleet in. */
 final readonly class Seat
 {
-    /** The harnesses a seat can be staged with. */
-    public const HARNESSES = ['claude', 'codex'];
-
     /** @param  list<string>  $after  slots on the same machine that start before this one */
     public function __construct(
         public string $machine,
@@ -30,9 +27,10 @@ final readonly class Seat
         public ?string $start = null,
     ) {}
 
-    public function codex(): bool
+    /** What this seat's harness can do (`lib/stage/harnesses.toml`). */
+    public function capabilities(): Harness
     {
-        return $this->harness === 'codex';
+        return Harnesses::get($this->harness);
     }
 
     /** How this seat starts: its own `start`, else its machine's. */
@@ -245,7 +243,7 @@ final readonly class Fleet
         preg_match('/^[a-z0-9._-]+$/', $workLocation) || throw new ConfigError("{$at}: work_location is a short label of [a-z0-9._-], never a path");
 
         $harness = self::text($row, 'harness', 'claude', $at);
-        in_array($harness, Seat::HARNESSES, true) || throw new ConfigError("{$at}: harness \"{$harness}\" is not stageable; the stageable harnesses are ".implode(', ', Seat::HARNESSES));
+        Harnesses::has($harness) || throw new ConfigError("{$at}: harness \"{$harness}\" is not stageable; the stageable harnesses are ".implode(', ', Harnesses::names()));
 
         $capacity = $row['capacity'] ?? null;
         if ($capacity !== null && (! is_int($capacity) || $capacity < 1)) {

@@ -46,7 +46,7 @@ role = "ci"
 after = ["a"]              # start after these slots
 conversation = "11111111-1111-1111-1111-111111111111"
 
-# A Codex seat: started with `codex`, never woken by the fleet, no channel flag. See docs/restart.md.
+# A Codex seat: started with `codex`, gets no channel notice, no channel flag. See docs/restart.md.
 [[seat]]
 machine = "office"
 slot = "codex"

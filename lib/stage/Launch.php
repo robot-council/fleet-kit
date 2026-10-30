@@ -39,7 +39,7 @@ final class Launch
     /** The program a seat runs. */
     public static function executable(Seat $seat): string
     {
-        return $seat->codex() ? 'codex' : 'claude';
+        return $seat->capabilities()->executable;
     }
 
     /**
@@ -56,20 +56,15 @@ final class Launch
      */
     public static function arguments(Seat $seat, Machine $machine, Fleet $fleet): array
     {
-        if ($seat->codex()) {
-            return $seat->conversation === null
-                ? [self::prompt($seat)]
-                : ['resume', $seat->conversation, self::prompt($seat)];
+        $harness = $seat->capabilities();
+        $arguments = $harness->arguments(self::prompt($seat), $seat->conversation);
+        if ($machine->remoteControl && $harness->remoteControlFlag !== null) {
+            array_push($arguments, $harness->remoteControlFlag, $seat->remoteControl);
         }
-
-        $arguments = [self::prompt($seat)];
-        if ($seat->conversation !== null) {
-            array_push($arguments, '--resume', $seat->conversation);
+        // Last: only tagged entries may follow the channel flag.
+        if ($harness->channelFlag !== null) {
+            array_push($arguments, $harness->channelFlag, $fleet->channel);
         }
-        if ($machine->remoteControl) {
-            array_push($arguments, '--remote-control', $seat->remoteControl);
-        }
-        array_push($arguments, '--dangerously-load-development-channels', $fleet->channel);
 
         return $arguments;
     }
