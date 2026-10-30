@@ -27,7 +27,7 @@ On Windows, `bin/seat-stage.ps1` is a thin wrapper.
 | --- | --- |
 | top level | `channel`: the tagged entry passed to the channel flag, `server:<name>` or `plugin:<name>@<marketplace>` (default `server:robot-council`) |
 | `[[machine]]` | `name`, `multiplexer` (`tmux` or `psmux`), `session`, `start`, `start_gap`, `confirm_channels`, `remote_control` |
-| `[[seat]]` | `machine`, `slot`, `repository`, `checkout`, `role`, and optionally `work_location`, `capacity`, `conversation`, `remote_control`, `after`, `prompt` |
+| `[[seat]]` | `machine`, `slot`, `repository`, `checkout`, `role`, and optionally `work_location`, `capacity`, `conversation`, `remote_control`, `after`, `prompt`, `start` |
 
 Per machine, `slot`, `work_location`, `conversation` and the window name (the repository name and the
 slot, with anything but letters, digits, dash and underscore turned into a dash) must each be unique;
@@ -78,6 +78,15 @@ On POSIX the window runs the command under `env -i` with only `HOME`, `PATH`, `U
 | `enter` | each window waits for Enter before starting (staging ahead of a restart) |
 | `now` | each window starts at once (after a reboot) |
 | `when-free` | each window starts once no live process holds its conversation, in `after` order, `start_gap` apart |
+
+A seat may set its own `start` (`enter`, `now` or `when-free`) to override its machine's; without one it inherits
+the machine's, so a seats file with no seat `start` stages as before. This keeps seats that are only needed
+sometimes (one per repository, say) waiting for a keypress while the always-on seats start on their own:
+set the machine to `when-free` and mark the occasional seats `start = "enter"`. `--dry-run` prints each seat's
+effective mode. An `enter` seat on a `when-free` machine is created waiting, is skipped by the start loop and
+does not hold back the seats after it; `confirm_channels` answers the warning only for seats that started on
+their own, and the operator answers it for a seat they start. A seat's own `start = "when-free"` needs the
+session files like a machine's does. Starting a waiting seat from outside its window is not supported.
 
 `when-free` starts seats strictly in order: a seat whose conversation is still held holds back the seats
 after it. It waits at most an hour on one conversation, then stops with an error that names the seat; the

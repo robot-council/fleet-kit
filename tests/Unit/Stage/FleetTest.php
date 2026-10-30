@@ -80,3 +80,19 @@ it('starts seats after the ones they name, otherwise in file order', function ()
 it('names the known machines when one is missing', function () {
     Fleet::parse(stageToml())->machineNamed('nope');
 })->throws(ConfigError::class, 'known: m');
+
+it('lets a seat override its machine\'s start, and inherits it otherwise', function () {
+    $fleet = Fleet::parse(stageToml(
+        seatToml('a').seatToml('b', 'start = "enter"').seatToml('c', 'start = "now"'),
+        "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\nstart = \"when-free\"\n",
+    ));
+    $machine = $fleet->machineNamed('m');
+
+    expect(array_map(fn ($s) => $s->start, $fleet->seats))->toBe([null, 'enter', 'now'])
+        ->and(array_map(fn ($s) => $s->startMode($machine), $fleet->seats))->toBe(['when-free', 'enter', 'now']);
+});
+
+it('refuses a seat start it does not know, naming the seat', function () {
+    expect(fn () => Fleet::parse(stageToml(seatToml('a', 'start = "soon"'))))
+        ->toThrow(ConfigError::class, 'm/a: start must be one of enter, now, when-free');
+});

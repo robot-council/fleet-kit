@@ -36,7 +36,7 @@ function stager(Fleet $fleet, array $rules = [], ?FakeClock $clock = null, array
         new Stager(
             $fleet,
             $shell,
-            Fakes::host('Windows', $home, transcripts: ['c-1']),
+            Fakes::host('Windows', $home, transcripts: ['c-1', 'c-2']),
             new Holders($home.'/.claude/sessions', $clock ?? new FakeClock, 'Windows'),
             function (string $line) use ($out) { $out[] = $line; },
             function (int $seconds) use ($sleeps, $onSleep) {
@@ -318,4 +318,75 @@ it('never presses a key when the trust text is on screen with the channels warni
 
     expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
         ->and(implode("\n", $out->getArrayCopy()))->toContain('left for the operator');
+});
+
+function mixedSeats(string $machine): Fleet
+{
+    return Fleet::parse(stageToml(
+        seatToml('a', 'conversation = "c-1"').seatToml('b', "start = \"enter\"\nconversation = \"c-2\"\nafter = [\"a\"]").seatToml('c', 'after = ["b"]'),
+        "[[machine]]\nname = \"m\"\n{$machine}\n",
+    ));
+}
+
+it('creates an enter seat on a when-free machine waiting, skips it in the start loop, and does not hold the seats after it back', function () {
+    $fleet = mixedSeats("multiplexer = \"tmux\"\nstart = \"when-free\"\nstart_gap = \"30s\"");
+    $m = $fleet->machineNamed('m');
+    // a's conversation is held until the first wait ends; b waits for the operator, c starts after a.
+    $clock = new FakeClock([102 => Fakes::STARTED]);
+    $files = [102 => ['sessionId' => 'c-1', 'procStart' => Fakes::filetime(Fakes::STARTED)]];
+    [$stager, $shell, $out, $sleeps] = stager($fleet, [], $clock, $files, function (int $n) use ($clock) {
+        $n === 1 && $clock->starts = [];
+    });
+
+    $code = $stager->stage($m);
+    $typed = array_values(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'));
+    $windows = [...verb($shell, 'new-session'), ...verb($shell, 'new-window')];
+
+    expect($code)->toBe(0)
+        ->and(array_map(fn ($c) => array_slice($c[0], 4), $typed))->toBe([
+            ['-l', Launch::command($fleet->seats[0], $m, $fleet)], ['Enter'],
+            ['-l', Launch::command($fleet->seats[2], $m, $fleet)], ['Enter'],
+        ])
+        // The wait on a, then one gap between the two seats that start on their own.
+        ->and($sleeps->getArrayCopy())->toBe([5, 30])
+        ->and(end($windows[0][0]))->toBe('/src/repo')
+        ->and(end($windows[1][0]))->toContain('Press Enter to start m/b')
+        ->and(end($windows[2][0]))->toBe('/src/repo')
+        ->and(implode("\n", $out->getArrayCopy()))->not->toContain('waiting: m/b');
+});
+
+it('starts a now seat at once on an enter machine, and leaves the others waiting', function () {
+    $fleet = Fleet::parse(stageToml(
+        seatToml('a', 'start = "now"').seatToml('b'),
+        "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\n",
+    ));
+    [$stager, $shell] = stager($fleet);
+
+    $stager->stage($fleet->machineNamed('m'));
+    $windows = [...verb($shell, 'new-session'), ...verb($shell, 'new-window')];
+
+    expect(end($windows[0][0]))->toStartWith('env -i HOME=')->not->toContain('Press Enter')
+        ->and(end($windows[1][0]))->toContain('Press Enter to start m/b');
+});
+
+it('answers the channels warning only for seats that start on their own', function () {
+    $fleet = mixedSeats("multiplexer = \"tmux\"\nstart = \"now\"\nconfirm_channels = true");
+    [$stager, $shell] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, "Channels (experimental) messages from server:robot-council\n")]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+    $captured = array_map(fn ($c) => $c[0][4], verb($shell, 'capture-pane'));
+
+    expect(array_values(array_unique($captured)))->toBe(['=fleet:=some-repo-a', '=fleet:=some-repo-c']);
+});
+
+it('prints each seat\'s effective start mode in a dry run', function () {
+    $fleet = mixedSeats("multiplexer = \"tmux\"\nstart = \"when-free\"");
+    [$stager, , $out] = stager($fleet);
+
+    $stager->dryRun($fleet->machineNamed('m'));
+    $text = implode("\n", $out->getArrayCopy());
+
+    expect($text)->toContain('[1] m/a')->toContain('work_location a, start = when-free)')
+        ->toContain('work_location b, start = enter)')
+        ->toContain('work_location c, start = when-free)');
 });
