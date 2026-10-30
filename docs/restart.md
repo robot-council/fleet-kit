@@ -45,12 +45,24 @@ because a join without it from a primary checkout records `primary`. `remote_con
 
 A seat with `harness = "codex"` is started with `codex` instead of `claude`, with the same first prompt:
 `codex "<first prompt>"`, or `codex resume <conversation> "<first prompt>"` when the seat has a `conversation`.
-These forms are read from Codex's source (`codex-rs/cli/src/main.rs` in openai/codex), **not yet run live**:
-the box on fleet-kit#26 stays open until a Codex seat has been staged on a machine with Codex installed.
+`codex "<first prompt>"` was run live (macOS arm64, `codex-cli 0.163.0`, fleet-kit#26): Codex took the prompt at
+launch and called `join`. The resume form is read from Codex's source (`codex-rs/cli/src/main.rs` in openai/codex)
+and **has not been run**.
 
 - **Not woken by the fleet.** Codex has no channel notice (`openai/codex#15299`), so a staged Codex seat sits
   at its prompt until its operator types to it. `--dangerously-load-development-channels`, `confirm_channels`
   and `--remote-control` do not apply, and none is passed.
+- **Enroll the machine for Codex first.** A machine enrolled only for Claude Code is refused at `join`. Wire the bridge
+  into `~/.codex/config.toml` as `[mcp_servers.robot-council]` with `ROBOT_COUNCIL_HARNESS = "codex"` (the cli wiki's
+  "Wiring the bridge into a harness"), then run `robot-council enroll --harness=codex --machine-label=<label>` and
+  approve it in the browser. In the live run `enroll` could not reach the service from inside Codex's sandbox on the
+  first try; a retry did.
+- **The operator still answers Codex's own prompts.** The run showed Codex's folder-trust prompt and a per-tool
+  approval for `join`; `seat-stage` answers neither.
+- **A joined Codex seat has only `join`.** After `join` the session still offered no other fleet tool (it could not
+  `leave`, so it also cannot claim a task or narrate); Codex does not appear to re-read the server's tool list.
+  Whether `codex resume` after the join picks the tools up is not measured. Until that is settled, a staged Codex
+  seat joins the fleet but cannot work tasks (robot-council/cli#373).
 - **`seat-stage check`** requires `codex` on `PATH` only when a machine has a Codex seat, reads
   `codex mcp list --json` for the `robot-council` server and its `ROBOT_COUNCIL_HARNESS = "codex"`, and looks for the
   conversation as `rollout-<timestamp>-<id>.jsonl` under `$CODEX_HOME/sessions` (default `~/.codex/sessions`).

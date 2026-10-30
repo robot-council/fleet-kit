@@ -48,7 +48,8 @@ final class Launch
      * Codex takes `codex [PROMPT]` to start and `codex resume <SESSION_ID> [PROMPT]` to resume one
      * conversation (openai/codex, codex-rs/cli/src/main.rs: `Resume(ResumeCommand)`, whose flattened
      * TUI options carry the PROMPT). It has no channel flag and no remote-control equivalent, so a
-     * Codex seat gets neither. Not yet run live (fleet-kit#26); the forms are read from that source.
+     * Codex seat gets neither. `codex "<prompt>"` was run live on macOS with codex-cli 0.163.0 and takes the
+     * prompt at launch (fleet-kit#26); `codex resume <id> "<prompt>"` is read from that source and not yet run.
      *
      * @return list<string>
      */
