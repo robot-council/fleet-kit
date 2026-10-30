@@ -152,3 +152,19 @@ it('changes nothing: it only asks the multiplexer whether a session exists and l
 
     expect($shell->lines())->toBe(['tmux has-session -t =fleet', 'claude mcp list']);
 });
+
+it('needs the session files only for seats that start when-free', function () {
+    $enter = check('start = "enter"', "multiplexer = \"tmux\"
+start = \"when-free\"", platform: 'Linux');
+    $whenFree = check('start = "when-free"', 'multiplexer = "tmux"', platform: 'Linux');
+
+    expect($enter->ok())->toBeTrue()->and($whenFree->failures[0])->toContain('start = "when-free" needs the session files');
+});
+
+it('notes the enter seats confirm_channels cannot answer for', function () {
+    $report = check('start = "enter"', "multiplexer = \"tmux\"
+confirm_channels = true
+start = \"now\"");
+
+    expect($report->ok())->toBeTrue()->and($report->notes[0])->toContain('start = "enter" (m/a)');
+});

@@ -35,6 +35,7 @@ work_location = "a"        # defaults to the slot; unique per machine; never a p
 capacity = 1               # optional
 # conversation = "00000000-0000-0000-0000-000000000000"   # `seat-stage collect` fills this in
 prompt = "Take new work only by placement."   # optional, appended to the first message
+# start = "enter"          # optional: this seat's own start mode (enter, now or when-free); omitted, it inherits the machine's
 
 [[seat]]
 machine = "office"

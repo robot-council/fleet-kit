@@ -24,7 +24,14 @@ final readonly class Seat
         public string $remoteControl,
         public array $after,
         public string $prompt,
+        public ?string $start = null,
     ) {}
+
+    /** How this seat starts: its own `start`, else its machine's. */
+    public function startMode(Machine $machine): string
+    {
+        return $this->start ?? $machine->start;
+    }
 
     public function label(): string
     {
@@ -254,6 +261,9 @@ final readonly class Fleet
         $prompt = isset($row['prompt']) ? self::text($row, 'prompt', null, $at) : '';
         str_contains($prompt, '"') && throw new ConfigError("{$at}: prompt may not hold a double quote; Windows PowerShell 5.1 splits an argument on it");
 
+        $start = isset($row['start']) ? self::text($row, 'start', null, $at) : null;
+        $start !== null && ! in_array($start, Machine::MODES, true) && throw new ConfigError("{$at}: start must be one of ".implode(', ', Machine::MODES));
+
         $after = [];
         foreach ((array) ($row['after'] ?? []) as $slotName) {
             is_string($slotName) || throw new ConfigError("{$at}: after is a list of slots");
@@ -273,6 +283,7 @@ final readonly class Fleet
             remoteControl: $remoteControl,
             after: $after,
             prompt: $prompt,
+            start: $start,
         );
     }
 

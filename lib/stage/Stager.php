@@ -56,7 +56,7 @@ final readonly class Stager
                 : $multiplexer->newWindow($machine->session, $seat->window(), $seat->checkout, $window);
 
             ($this->out)('');
-            ($this->out)(sprintf('[%d] %s  %s  (%s, work_location %s)', $i + 1, $seat->label(), $seat->repository, $seat->role, $seat->workLocation));
+            ($this->out)(sprintf('[%d] %s  %s  (%s, work_location %s, start = %s)', $i + 1, $seat->label(), $seat->repository, $seat->role, $seat->workLocation, $seat->startMode($machine)));
             ($this->out)("    multiplexer: ".self::display($argv, $machine));
             if ($window === null) {
                 ($this->out)('    then, once no live process holds the conversation: send-keys the command below');
@@ -92,12 +92,11 @@ final readonly class Stager
             ($this->out)("created {$seat->label()}");
         }
 
-        if ($machine->start === 'when-free') {
-            $this->startWhenFree($machine, $seats, $multiplexer);
-        }
-        if ($machine->confirmChannels && $machine->start !== 'enter') {
+        $this->startWhenFree($machine, array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free')), $multiplexer);
+        if ($machine->confirmChannels) {
             foreach ($seats as $seat) {
-                $this->confirm($machine, $seat, $multiplexer);
+                // A seat in `enter` is started by the operator, who answers its prompts.
+                $seat->startMode($machine) === 'enter' || $this->confirm($machine, $seat, $multiplexer);
             }
         }
 
@@ -109,7 +108,7 @@ final readonly class Stager
     /** The command a window is created with; null leaves an idle shell for `when-free` to type into. */
     private function windowCommand(string $command, Seat $seat, Machine $machine): ?string
     {
-        return match ($machine->start) {
+        return match ($seat->startMode($machine)) {
             'now' => $command,
             'enter' => Launch::waiting($command, $seat, $machine),
             'when-free' => null,
@@ -118,7 +117,9 @@ final readonly class Stager
 
     /**
      * Starts each seat once no live process holds its conversation, in `after` order, a
-     * `start_gap` apart. A seat with no conversation yet is free at once.
+     * `start_gap` apart. A seat with no conversation yet is free at once. Only the seats whose own
+     * start mode is `when-free` come here: a seat left waiting for the operator, or started at once,
+     * neither waits on nor holds back the others.
      *
      * @param  list<Seat>  $seats
      */

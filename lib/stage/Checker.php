@@ -57,12 +57,14 @@ final readonly class Checker
             $report->fail('claude is not on PATH');
         }
 
-        if ($machine->confirmChannels && $machine->start === 'enter') {
-            $report->note('confirm_channels has no effect in start = "enter": the window starts when the operator presses Enter');
+        $entering = array_map(fn (Seat $s) => $s->label(), array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'enter')));
+        if ($machine->confirmChannels && $entering !== []) {
+            $report->note('confirm_channels has no effect in start = "enter" ('.implode(', ', $entering).'): the window starts when the operator presses Enter');
         }
 
         $detect = $this->holders->readable();
-        if ($machine->start === 'when-free' && ! $detect) {
+        $whenFree = array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free'));
+        if ($whenFree !== [] && ! $detect) {
             $report->fail("start = \"when-free\" needs the session files, which are unreadable on {$this->host->platform}; it refuses seats it cannot detect");
         } elseif (! $detect) {
             $report->note("cannot tell whether a live process already holds a conversation on {$this->host->platform}");
@@ -95,7 +97,7 @@ final readonly class Checker
             }
             if ($holder !== null) {
                 // when-free exists to wait for a held conversation; any other mode would start a second one.
-                $machine->start === 'when-free'
+                $seat->startMode($machine) === 'when-free'
                     ? $report->note("{$at}: conversation {$seat->conversation} is held by process {$holder->pid}; it starts once that exits")
                     : $report->fail("{$at}: conversation {$seat->conversation} is already held by process {$holder->pid}");
             }
