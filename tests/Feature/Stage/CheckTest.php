@@ -168,3 +168,38 @@ start = \"now\"");
 
     expect($report->ok())->toBeTrue()->and($report->notes[0])->toContain('start = "enter" (m/a)');
 });
+
+const CODEX_LIST = '[{"name":"robot-council","enabled":true,"transport":{"type":"stdio","command":"php","args":[],"env":{"ROBOT_COUNCIL_HARNESS":"codex"}}}]';
+
+it('checks a Codex seat against codex: its binary, its server and its conversation', function () {
+    $ok = check("harness = \"codex\"\nconversation = \"c-9\"", host: Fakes::host(missing: ['claude'], codexSessions: ['c-9']), rules: [[['codex', 'mcp', 'list'], new Result(0, CODEX_LIST)]]);
+    $missing = check('harness = "codex"', host: Fakes::host(missing: ['codex']), rules: [[['codex', 'mcp', 'list'], new Result(0, CODEX_LIST)]]);
+
+    // claude is not required when no seat uses it.
+    expect($ok->failures)->toBe([])->and($missing->failures)->toBe(['codex is not on PATH']);
+});
+
+it('fails a Codex seat whose server is absent, whose harness disagrees, or whose conversation is not kept', function () {
+    $absent = check('harness = "codex"', rules: [[['codex', 'mcp', 'list'], new Result(0, '[]')]]);
+    $wrong = check('harness = "codex"', rules: [[['codex', 'mcp', 'list'], new Result(0, str_replace('"codex"}', '"claude"}', CODEX_LIST))]]);
+    $gone = check("harness = \"codex\"\nconversation = \"c-9\"", host: Fakes::host(codexSessions: []), rules: [[['codex', 'mcp', 'list'], new Result(0, CODEX_LIST)]]);
+
+    expect($absent->failures)->toBe(['m/a: the channel server "robot-council" is not in `codex mcp list`'])
+        ->and($wrong->failures)->toBe(['m/a: the "robot-council" entry has ROBOT_COUNCIL_HARNESS claude, the seats file says codex'])
+        ->and($gone->failures)->toBe(['m/a: Codex conversation c-9 has no rollout under ~/.codex/sessions']);
+});
+
+it('says what it could not check on a Codex seat instead of passing it', function () {
+    $report = check("harness = \"codex\"\nconversation = \"c-9\"", rules: [[['codex', 'mcp', 'list'], new Result(1)]]);
+
+    expect($report->ok())->toBeTrue()
+        ->and($report->notes)->toContain('m/a: could not read Codex\'s sessions directory; conversation c-9 not checked')
+        ->toContain('m/a: `codex mcp list --json` could not be read in /src/repo; the "robot-council" server was not checked')
+        ->toContain('m/a: cannot tell whether a live process holds Codex conversation c-9; not checked');
+});
+
+it('refuses a Codex seat in when-free, which cannot detect a held Codex conversation', function () {
+    $report = check('harness = "codex"', "multiplexer = \"tmux\"\nstart = \"when-free\"", rules: [[['codex', 'mcp', 'list'], new Result(0, CODEX_LIST)]]);
+
+    expect($report->failures)->toBe(['m/a: start = "when-free" cannot tell whether a live process holds a Codex conversation; use "enter" or "now" for a Codex seat']);
+});

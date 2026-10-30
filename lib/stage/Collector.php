@@ -43,6 +43,11 @@ final readonly class Collector
         }
 
         foreach ($this->fleet->seatsOn($machine->name) as $seat) {
+            if ($seat->codex()) {
+                $lines[] = "{$seat->label()}: collect does not read Codex conversation ids; record \"conversation\" by hand";
+
+                continue;
+            }
             $matches = array_values(array_filter($live, fn (Holder $h) => self::same($h->cwd, $seat->checkout)));
             if (count($matches) === 0) {
                 $lines[] = "{$seat->label()}: no live conversation in {$seat->checkout}";

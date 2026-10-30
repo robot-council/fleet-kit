@@ -36,13 +36,31 @@ final class Launch
         return trim($first.($seat->prompt === '' ? '' : ' '.preg_replace('/\s+/', ' ', $seat->prompt)));
     }
 
+    /** The program a seat runs. */
+    public static function executable(Seat $seat): string
+    {
+        return $seat->codex() ? 'codex' : 'claude';
+    }
+
     /**
-     * The arguments after `claude`.
+     * The arguments after the program.
+     *
+     * Codex takes `codex [PROMPT]` to start and `codex resume <SESSION_ID> [PROMPT]` to resume one
+     * conversation (openai/codex, codex-rs/cli/src/main.rs: `Resume(ResumeCommand)`, whose flattened
+     * TUI options carry the PROMPT). It has no channel flag and no remote-control equivalent, so a
+     * Codex seat gets neither. `codex "<prompt>"` was run live on macOS with codex-cli 0.163.0 and takes the
+     * prompt at launch (fleet-kit#26); `codex resume <id> "<prompt>"` is read from that source and not yet run.
      *
      * @return list<string>
      */
     public static function arguments(Seat $seat, Machine $machine, Fleet $fleet): array
     {
+        if ($seat->codex()) {
+            return $seat->conversation === null
+                ? [self::prompt($seat)]
+                : ['resume', $seat->conversation, self::prompt($seat)];
+        }
+
         $arguments = [self::prompt($seat)];
         if ($seat->conversation !== null) {
             array_push($arguments, '--resume', $seat->conversation);
@@ -60,7 +78,7 @@ final class Launch
     {
         $claude = implode(' ', array_map(
             fn (string $a) => $machine->windows() ? self::powershell($a) : self::posix($a),
-            ['claude', ...self::arguments($seat, $machine, $fleet)],
+            [self::executable($seat), ...self::arguments($seat, $machine, $fleet)],
         ));
 
         if ($machine->windows()) {

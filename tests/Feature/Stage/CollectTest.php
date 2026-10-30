@@ -125,3 +125,11 @@ it('keeps mixed line endings byte for byte, and ends a new line like the line be
     expect(Collector::set("[[seat]]\nmachine = \"m\"\nslot = \"a\"", 'm', 'a', 'c-1'))
         ->toBe("[[seat]]\nmachine = \"m\"\nslot = \"a\"\nconversation = \"c-1\"");
 });
+
+it('says plainly that it does not read Codex conversation ids', function () {
+    [$code, $out, $after] = collectWith(stageToml(seatToml('a', 'harness = "codex"')), [201 => live('conv-new', '/src/repo/')], [201 => Fakes::STARTED]);
+
+    expect($code)->toBe(0)
+        ->and($out)->toBe(['m/a: collect does not read Codex conversation ids; record "conversation" by hand'])
+        ->and($after)->not->toContain('conv-new');
+});

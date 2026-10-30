@@ -95,3 +95,30 @@ it('quotes for each shell', function () {
         ->and(Launch::powershell("it's"))->toBe("'it''s'")
         ->and(Launch::powershell('C:\\src\\repo'))->toBe('C:\\src\\repo');
 });
+
+it('starts a Codex seat with codex and the same prompt, and no channel or remote-control flag', function () {
+    $fleet = launchFleet('harness = "codex"');
+    $seat = $fleet->seats[0];
+
+    expect(Launch::arguments($seat, $fleet->machineNamed('m'), $fleet))->toBe([Launch::prompt($seat)])
+        ->and(Launch::command($seat, $fleet->machineNamed('m'), $fleet))
+        ->toStartWith('env -i HOME="$HOME" PATH="$PATH"')
+        ->toContain("codex 'Join the Robot Council fleet")
+        ->not->toContain('claude')->not->toContain('--dangerously-load-development-channels')->not->toContain('--remote-control');
+});
+
+it('resumes a Codex conversation with codex resume <id> <prompt>', function () {
+    $fleet = launchFleet("harness = \"codex\"\nconversation = \"019a-uuid\"");
+    $seat = $fleet->seats[0];
+
+    expect(Launch::arguments($seat, $fleet->machineNamed('m'), $fleet))->toBe(['resume', '019a-uuid', Launch::prompt($seat)])
+        ->and(Launch::prompt($seat))->toContain('offers `presence_heartbeat`')->toContain('Never call `leave`');
+});
+
+it('scrubs the leaked variables for a Codex seat on Windows too', function () {
+    $fleet = launchFleet('harness = "codex"', 'multiplexer = "psmux"');
+    $command = Launch::command($fleet->seats[0], $fleet->machineNamed('m'), $fleet);
+
+    expect($command)->toStartWith('Get-ChildItem Env:')->toContain("; codex 'Join the Robot Council fleet")
+        ->not->toContain('env -i')->not->toContain('--dangerously-load');
+});

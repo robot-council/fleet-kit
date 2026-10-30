@@ -120,3 +120,17 @@ it('sets conversation in a seat header written with inner spaces, and keeps a tr
 it('refuses to write an id the seats file would not accept', function () {
     Collector::set(stageToml(), 'm', 'a', 'x" injected = "y');
 })->throws(ConfigError::class, 'conversation ids');
+
+it('finds a Codex rollout by conversation id under CODEX_HOME, and says when it cannot look', function () {
+    $dir = sys_get_temp_dir().'/codex-home-'.bin2hex(random_bytes(4));
+    mkdir($dir.'/sessions/2026/10/30', 0777, true);
+    touch($dir.'/sessions/2026/10/30/rollout-2026-10-30T10-00-00-019a-uuid.jsonl');
+    putenv("CODEX_HOME={$dir}");
+    $host = FleetKit\Stage\Host::real();
+    $found = [($host->hasCodexSession)('019a-uuid'), ($host->hasCodexSession)('other')];
+    putenv("CODEX_HOME={$dir}/missing");
+    $unreadable = ($host->hasCodexSession)('019a-uuid');
+    putenv('CODEX_HOME');
+
+    expect($found)->toBe([true, false])->and($unreadable)->toBeNull();
+});

@@ -55,7 +55,7 @@ final class Fakes
     public const STARTED = '2026-10-20T13:39:13+00:00';
 
     /** @param  list<string>  $missing  commands that are not on PATH */
-    public static function host(string $platform = 'Windows', string $home = '/home/x', array $missing = [], array $transcripts = [], bool $directories = true): Host
+    public static function host(string $platform = 'Windows', string $home = '/home/x', array $missing = [], array $transcripts = [], bool $directories = true, ?array $codexSessions = null): Host
     {
         return new Host(
             home: $home,
@@ -63,6 +63,7 @@ final class Fakes
             onPath: fn (string $c) => ! in_array($c, $missing, true),
             isDirectory: fn (string $p) => $directories,
             hasTranscript: fn (string $id) => in_array($id, $transcripts, true),
+            hasCodexSession: $codexSessions === null ? fn (string $id) => null : fn (string $id) => in_array($id, $codexSessions, true),
         );
     }
 

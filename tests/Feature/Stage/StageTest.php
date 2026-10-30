@@ -390,3 +390,12 @@ it('prints each seat\'s effective start mode in a dry run', function () {
         ->toContain('work_location b, start = enter)')
         ->toContain('work_location c, start = when-free)');
 });
+
+it('does not look for the channels warning on a Codex seat', function () {
+    $fleet = Fleet::parse(stageToml(seatToml('a', 'harness = "codex"'), "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\nstart = \"now\"\nconfirm_channels = true\n"));
+    [$stager, $shell] = stager($fleet, [[['codex', 'mcp', 'list'], new Result(0, '[]')]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(verb($shell, 'capture-pane'))->toBe([]);
+});
