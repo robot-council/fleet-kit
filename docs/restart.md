@@ -39,7 +39,26 @@ doubled like `'`.
 
 `work_location` defaults to the slot, is unique per machine, and is always passed explicitly,
 because a join without it from a primary checkout records `primary`. `remote_control` defaults to
-`<repo>/<machine>/<slot>`. Only `harness = "claude"` is stageable.
+`<repo>/<machine>/<slot>`. `harness` is `claude` (the default) or `codex`; anything else is refused.
+
+## Codex seats
+
+A seat with `harness = "codex"` is started with `codex` instead of `claude`, with the same first prompt:
+`codex "<first prompt>"`, or `codex resume <conversation> "<first prompt>"` when the seat has a `conversation`.
+These forms are read from Codex's source (`codex-rs/cli/src/main.rs` in openai/codex), **not yet run live**:
+the box on fleet-kit#26 stays open until a Codex seat has been staged on a machine with Codex installed.
+
+- **Not woken by the fleet.** Codex has no channel notice (`openai/codex#15299`), so a staged Codex seat sits
+  at its prompt until its operator types to it. `--dangerously-load-development-channels`, `confirm_channels`
+  and `--remote-control` do not apply, and none is passed.
+- **`seat-stage check`** requires `codex` on `PATH` only when a machine has a Codex seat, reads
+  `codex mcp list --json` for the `robot-council` server and its `ROBOT_COUNCIL_HARNESS = "codex"`, and looks for the
+  conversation as `rollout-<timestamp>-<id>.jsonl` under `$CODEX_HOME/sessions` (default `~/.codex/sessions`).
+  What it cannot read (the list output, the sessions directory) it reports as not checked, never as passing.
+- **`start = "when-free"` is refused** for a Codex seat: the holder files it reads are Claude Code's, so it cannot
+  tell whether a live process holds a Codex conversation. Use `enter` or `now`, per seat if need be.
+- **`seat-stage collect`** does not read Codex conversation ids and says so for each Codex seat; record
+  `conversation` by hand.
 
 ## The first prompt
 

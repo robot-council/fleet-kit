@@ -30,10 +30,11 @@ it('reads the shipped example', function () {
 
     expect($fleet->channel)->toBe('server:robot-council')
         ->and(array_keys($fleet->machines))->toBe(['office', 'desk'])
-        ->and($fleet->seats)->toHaveCount(3)
+        ->and($fleet->seats)->toHaveCount(4)
         ->and($fleet->machineNamed('desk')->windows())->toBeTrue()
         ->and($fleet->machineNamed('office')->windows())->toBeFalse()
-        ->and($fleet->mcpServer())->toBe('robot-council');
+        ->and($fleet->mcpServer())->toBe('robot-council')
+        ->and(array_map(fn ($s) => $s->harness, $fleet->seats))->toBe(['claude', 'claude', 'codex', 'claude']);
 });
 
 it('fills in defaults', function () {
@@ -59,7 +60,7 @@ it('refuses a bad file', function (string $toml, string $message) {
     'duplicate slot' => [stageToml(seatToml('a', 'work_location = "z"').seatToml('a', 'work_location = "y"')), 'listed twice'],
     'duplicate work location' => [stageToml(seatToml('a').seatToml('b', 'work_location = "a"')), 'already used'],
     'bad role' => [stageToml(str_replace('"build"', '"boss"', seatToml())), 'role must be'],
-    'harness not stageable' => [stageToml(seatToml('a', 'harness = "codex"')), 'not stageable'],
+    'harness not stageable' => [stageToml(seatToml('a', 'harness = "gemini"')), 'm/a: harness "gemini" is not stageable; the stageable harnesses are claude, codex'],
     'work location as a path' => [stageToml(seatToml('a', 'work_location = "/src/repo"')), 'never a path'],
     'repository without an owner' => [stageToml(str_replace('org/some.repo', 'repo', seatToml())), 'owner/name'],
     'bad capacity' => [stageToml(seatToml('a', 'capacity = 0')), 'capacity'],

@@ -13,6 +13,7 @@ final readonly class Host
      * @param  Closure(string): bool  $onPath
      * @param  Closure(string): bool  $isDirectory
      * @param  Closure(string): bool  $hasTranscript
+     * @param  ?Closure(string): ?bool  $hasCodexSession  whether Codex keeps this conversation; null where it can't be read
      */
     public function __construct(
         public string $home,
@@ -20,6 +21,7 @@ final readonly class Host
         public Closure $onPath,
         public Closure $isDirectory,
         public Closure $hasTranscript,
+        public ?Closure $hasCodexSession = null,
     ) {}
 
     public static function real(): self
@@ -54,7 +56,29 @@ final readonly class Host
 
                 return false;
             },
+            hasCodexSession: function (string $id) use ($home): ?bool {
+                // Rollouts are `sessions/YYYY/MM/DD/rollout-<timestamp>-<id>.jsonl` (openai/codex, codex-rs/rollout).
+                $sessions = self::codexDirectory($home).DIRECTORY_SEPARATOR.'sessions';
+                if (! is_dir($sessions)) {
+                    return null;
+                }
+                foreach (new \RecursiveIteratorIterator(new \RecursiveDirectoryIterator($sessions, \FilesystemIterator::SKIP_DOTS)) as $file) {
+                    if ($file->isFile() && str_starts_with($file->getFilename(), 'rollout-') && str_contains($file->getFilename(), $id)) {
+                        return true;
+                    }
+                }
+
+                return false;
+            },
         );
+    }
+
+    /** Codex's data directory: `CODEX_HOME` when set, else `~/.codex`. */
+    public static function codexDirectory(string $home): string
+    {
+        $configured = (string) getenv('CODEX_HOME');
+
+        return $configured !== '' ? $configured : $home.DIRECTORY_SEPARATOR.'.codex';
     }
 
     /** Claude Code's data directory: `CLAUDE_CONFIG_DIR` when set, else `~/.claude`. */

@@ -95,8 +95,8 @@ final readonly class Stager
         $this->startWhenFree($machine, array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free')), $multiplexer);
         if ($machine->confirmChannels) {
             foreach ($seats as $seat) {
-                // A seat in `enter` is started by the operator, who answers its prompts.
-                $seat->startMode($machine) === 'enter' || $this->confirm($machine, $seat, $multiplexer);
+                // A seat in `enter` is started by the operator, who answers its prompts; Codex has no channels warning.
+                $seat->startMode($machine) === 'enter' || $seat->codex() || $this->confirm($machine, $seat, $multiplexer);
             }
         }
 
