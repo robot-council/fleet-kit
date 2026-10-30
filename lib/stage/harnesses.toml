@@ -1,0 +1,50 @@
+# What each harness can do, read by seat-stage itself (fleet-kit#6): the launcher builds a seat's command line
+# from it and `check` decides what to look for. A seats file names a harness with `harness = "<key>"`; the keys
+# here are the stageable ones. Add a harness by adding a table; no code changes if it needs only values
+# already listed under each key below.
+#
+#   executable           the program a window runs
+#   launch               its arguments for a new conversation; {prompt} is the first prompt
+#   resume               its arguments to resume one; {conversation} is the seat's conversation id
+#   remote_control_flag  (optional) a flag taking the seat's remote_control name; absent = none passed
+#   channel_flag         (optional) a flag taking the fleet's channel entry, appended last; absent = none passed
+#   confirm_channels     whether the window shows the development-channels warning confirm_channels answers
+#   conversations        where `check` looks for a seat's conversation: claude-projects | codex-rollouts
+#   holders              how a live process holding a conversation is told (when-free, check): claude-sessions | none
+#   collect              whether `seat-stage collect` can read this harness's live conversation ids
+#   mcp                  how `check` finds the bridge in the harness's configuration: claude-mcp-list | codex-mcp-list-json
+#   wake                 how an idle seat can be woken from outside: channel | codex-queue | none (recorded, not yet used)
+#   usage                how its allowance can be read: oauth-endpoint | rollout-token-count | none (recorded, not yet used)
+
+# Claude Code 2.1.304 on Windows 11 (fleet-kit#7); the channel flag and its argument order were measured there.
+[claude]
+executable = "claude"
+launch = ["{prompt}"]
+resume = ["{prompt}", "--resume", "{conversation}"]
+remote_control_flag = "--remote-control"
+channel_flag = "--dangerously-load-development-channels"
+confirm_channels = true
+conversations = "claude-projects"
+holders = "claude-sessions"
+collect = true
+mcp = "claude-mcp-list"
+wake = "channel"
+usage = "oauth-endpoint"
+
+# codex-cli 0.163.0 on macOS 27.2 arm64 (brent-tank, 2026-10-30). Measured: staging, `codex "<prompt>"` and
+# `codex resume <id> "<prompt>"` (fleet-kit#26, robot-council/cli#375); `codex queue --thread <id> --message <text>`
+# waking an idle session through the shared local app-server, and usage in the rollout `token_count` records'
+# `rate_limits.primary` (fleet-kit#6, comment 6529651530). Not measured: Windows or Linux, other versions, queue
+# against a session started with a `-c` override (it runs embedded). Codex has no channel flag and no
+# remote-control flag, so neither key is set; it has no channels warning.
+[codex]
+executable = "codex"
+launch = ["{prompt}"]
+resume = ["resume", "{conversation}", "{prompt}"]
+confirm_channels = false
+conversations = "codex-rollouts"
+holders = "none"
+collect = false
+mcp = "codex-mcp-list-json"
+wake = "codex-queue"
+usage = "rollout-token-count"

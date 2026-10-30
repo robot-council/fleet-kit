@@ -63,7 +63,7 @@ final readonly class Checker
         }
 
         $detect = $this->holders->readable();
-        $whenFree = array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free' && ! $s->codex()));
+        $whenFree = array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free' && $s->capabilities()->holders !== 'none'));
         if ($whenFree !== [] && ! $detect) {
             $report->fail("start = \"when-free\" needs the session files, which are unreadable on {$this->host->platform}; it refuses seats it cannot detect");
         } elseif (! $detect) {
@@ -85,64 +85,62 @@ final readonly class Checker
             $report->fail("{$at}: the checkout {$seat->checkout} does not exist");
         }
 
-        if ($seat->codex()) {
-            $this->codexSeat($seat, $machine, $report);
+        $harness = $seat->capabilities();
 
-            return;
+        // Whether a live process holds a conversation is read from the harness's own session files; where
+        // there are none to read, `when-free` cannot work and is refused.
+        if ($harness->holders === 'none' && $seat->startMode($machine) === 'when-free') {
+            $report->fail("{$at}: start = \"when-free\" cannot tell whether a live process holds a {$harness->title()} conversation; use \"enter\" or \"now\" for a {$harness->title()} seat");
         }
 
         if ($seat->conversation !== null) {
-            if (! ($this->host->hasTranscript)($seat->conversation)) {
-                $report->fail("{$at}: conversation {$seat->conversation} has no transcript under ~/.claude/projects");
-            }
-            try {
-                $holder = $detect ? $this->holders->holding($seat->conversation) : null;
-            } catch (Unreadable $e) {
-                $report->fail("{$at}: cannot tell whether a live process holds {$seat->conversation}: {$e->getMessage()}");
-                $holder = null;
-            }
-            if ($holder !== null) {
-                // when-free exists to wait for a held conversation; any other mode would start a second one.
-                $seat->startMode($machine) === 'when-free'
-                    ? $report->note("{$at}: conversation {$seat->conversation} is held by process {$holder->pid}; it starts once that exits")
-                    : $report->fail("{$at}: conversation {$seat->conversation} is already held by process {$holder->pid}");
+            $this->conversation($seat, $harness, $report);
+
+            if ($harness->holders === 'none') {
+                $seat->startMode($machine) === 'when-free' || $report->note("{$at}: cannot tell whether a live process holds {$harness->title()} conversation {$seat->conversation}; not checked");
+            } else {
+                try {
+                    $holder = $detect ? $this->holders->holding($seat->conversation) : null;
+                } catch (Unreadable $e) {
+                    $report->fail("{$at}: cannot tell whether a live process holds {$seat->conversation}: {$e->getMessage()}");
+                    $holder = null;
+                }
+                if ($holder !== null) {
+                    // when-free exists to wait for a held conversation; any other mode would start a second one.
+                    $seat->startMode($machine) === 'when-free'
+                        ? $report->note("{$at}: conversation {$seat->conversation} is held by process {$holder->pid}; it starts once that exits")
+                        : $report->fail("{$at}: conversation {$seat->conversation} is already held by process {$holder->pid}");
+                }
             }
         }
 
-        $this->server($seat, $report);
+        $this->server($seat, $harness, $report);
     }
 
-    /**
-     * A Codex seat: its conversation is looked for where Codex keeps it, and the bridge in Codex's own
-     * configuration. What cannot be read is said to be unchecked, never passed. Whether a live process
-     * holds the conversation is not detectable (the holder files are Claude Code's), so a Codex seat
-     * is refused `when-free`.
-     */
-    private function codexSeat(Seat $seat, Machine $machine, Report $report): void
+    /** The seat's conversation is looked for where its harness keeps it; what cannot be read is said so, never passed. */
+    private function conversation(Seat $seat, Harness $harness, Report $report): void
     {
         $at = $seat->label();
+        $id = (string) $seat->conversation;
 
-        if ($seat->startMode($machine) === 'when-free') {
-            $report->fail("{$at}: start = \"when-free\" cannot tell whether a live process holds a Codex conversation; use \"enter\" or \"now\" for a Codex seat");
-        } elseif ($seat->conversation !== null) {
-            $report->note("{$at}: cannot tell whether a live process holds Codex conversation {$seat->conversation}; not checked");
-        }
-
-        if ($seat->conversation !== null) {
-            $found = $this->host->hasCodexSession === null ? null : ($this->host->hasCodexSession)($seat->conversation);
-            match ($found) {
-                true => null,
-                false => $report->fail("{$at}: Codex conversation {$seat->conversation} has no rollout under ~/.codex/sessions"),
-                null => $report->note("{$at}: could not read Codex's sessions directory; conversation {$seat->conversation} not checked"),
-            };
-        }
-
-        $name = $this->fleet->mcpServer();
-        if ($name === null) {
-            $report->note("{$at}: the channel is a plugin entry; its MCP server was not checked");
+        if ($harness->conversations === 'claude-projects') {
+            ($this->host->hasTranscript)($id) || $report->fail("{$at}: conversation {$id} has no transcript under ~/.claude/projects");
 
             return;
         }
+
+        $found = $this->host->hasCodexSession === null ? null : ($this->host->hasCodexSession)($id);
+        match ($found) {
+            true => null,
+            false => $report->fail("{$at}: Codex conversation {$id} has no rollout under ~/.codex/sessions"),
+            null => $report->note("{$at}: could not read Codex's sessions directory; conversation {$id} not checked"),
+        };
+    }
+
+    /** Codex: the bridge in `codex mcp list --json`, with ROBOT_COUNCIL_HARNESS codex. */
+    private function codexServer(Seat $seat, string $name, Report $report): void
+    {
+        $at = $seat->label();
 
         $list = $this->shell->run(['codex', 'mcp', 'list', '--json'], $seat->checkout);
         $entries = $list->code === 0 ? json_decode($list->out, true) : null;
@@ -168,11 +166,16 @@ final readonly class Checker
     }
 
     /** The channel's MCP server must exist, and its --project and --harness must agree with the seat. */
-    private function server(Seat $seat, Report $report): void
+    private function server(Seat $seat, Harness $harness, Report $report): void
     {
         $name = $this->fleet->mcpServer();
         if ($name === null) {
             $report->note("{$seat->label()}: the channel is a plugin entry; its MCP server was not checked");
+
+            return;
+        }
+        if ($harness->mcp === 'codex-mcp-list-json') {
+            $this->codexServer($seat, $name, $report);
 
             return;
         }
