@@ -45,9 +45,9 @@ because a join without it from a primary checkout records `primary`. `remote_con
 
 A seat with `harness = "codex"` is started with `codex` instead of `claude`, with the same first prompt:
 `codex "<first prompt>"`, or `codex resume <conversation> "<first prompt>"` when the seat has a `conversation`.
-`codex "<first prompt>"` was run live (macOS arm64, `codex-cli 0.163.0`, fleet-kit#26): Codex took the prompt at
-launch and called `join`. The resume form is read from Codex's source (`codex-rs/cli/src/main.rs` in openai/codex)
-and **has not been run**.
+Both forms were run live on macOS arm64 with `codex-cli 0.163.0` (fleet-kit#26 and robot-council/cli#375):
+Codex takes the prompt at launch, and `codex resume <id> "<prompt>"` reopens the conversation and runs the prompt
+as a new turn. What a Codex seat can *do* after either depends on its bridge arguments, below.
 
 - **Not woken by the fleet.** Codex has no channel notice (`openai/codex#15299`), so a staged Codex seat sits
   at its prompt until its operator types to it. `--dangerously-load-development-channels`, `confirm_channels`
@@ -59,10 +59,26 @@ and **has not been run**.
   first try; a retry did.
 - **The operator still answers Codex's own prompts.** The run showed Codex's folder-trust prompt and a per-tool
   approval for `join`; `seat-stage` answers neither.
-- **A joined Codex seat has only `join`.** After `join` the session still offered no other fleet tool (it could not
-  `leave`, so it also cannot claim a task or narrate); Codex does not appear to re-read the server's tool list.
-  Whether `codex resume` after the join picks the tools up is not measured. Until that is settled, a staged Codex
-  seat joins the fleet but cannot work tasks (robot-council/cli#373).
+- **A Codex seat's bridge must auto-join.** Codex does not re-read a server's tool list, so a session that calls
+  `join` itself keeps only `join` and cannot claim, narrate or `leave`. And `codex resume` starts a *new* bridge
+  process that has not joined, so a resumed seat offers `join` alone again, whatever the earlier session did
+  (measured on `cli#375`; robot-council/cli#373). So the bridge entry in the seat's Codex configuration must carry
+  `--auto-join` with the seat's `--role`, `--repository` and `--work-location`, the same values as its seats-file
+  entry:
+  `args = ["mcp", "--auto-join", "--role=build", "--repository=<owner/name>", "--work-location=<work_location>"]`.
+  With that, the fleet's tools are there from the first turn, on a fresh start and on a resume. The args can come
+  from `~/.codex/config.toml`, a per-checkout config, or `-c 'mcp_servers.robot-council.args=[...]'` at launch (which
+  costs Codex's shared background server: it warns that overrides need embedded mode).
+- **`seat-stage` does not write those args, and its prompt still says `join`.** It starts the window with the
+  prompt it builds for every seat. For a Codex seat whose bridge auto-joins, a fresh seat's "call `join`" has nothing
+  to call (a resumed seat's heartbeat-or-join text should fit, since `presence_heartbeat` is offered, but that was not run). Say what the
+  seat should do in its own `prompt`, as below.
+- **Name the fleet tools in the seat's `prompt`.** Codex keeps MCP tools out of the model's context until it
+  searches for them, so a model asked to list its robot-council tools said it had none, yet found and called
+  `leave` when told the name. Put the tools the seat needs in its `prompt`, for instance "claim tasks with
+  `task_claim`, report with `events_narrate`, read the feed with `events_read`". Each tool call also needs Codex's
+  own approval (`Allow the robot-council MCP server to run tool "<name>"?`) unless the operator chooses "Always
+  allow".
 - **`seat-stage check`** requires `codex` on `PATH` only when a machine has a Codex seat, reads
   `codex mcp list --json` for the `robot-council` server and its `ROBOT_COUNCIL_HARNESS = "codex"`, and looks for the
   conversation as `rollout-<timestamp>-<id>.jsonl` under `$CODEX_HOME/sessions` (default `~/.codex/sessions`).
