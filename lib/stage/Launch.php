@@ -49,7 +49,8 @@ final class Launch
      * conversation (openai/codex, codex-rs/cli/src/main.rs: `Resume(ResumeCommand)`, whose flattened
      * TUI options carry the PROMPT). It has no channel flag and no remote-control equivalent, so a
      * Codex seat gets neither. `codex "<prompt>"` was run live on macOS with codex-cli 0.163.0 and takes the
-     * prompt at launch (fleet-kit#26); `codex resume <id> "<prompt>"` is read from that source and not yet run.
+     * prompt at launch (fleet-kit#26); `codex resume <id> "<prompt>"` reopened the conversation and ran the prompt
+     * (fleet-kit#26, robot-council/cli#375); a resumed seat needs its bridge to auto-join, see docs/restart.md.
      *
      * @return list<string>
      */
