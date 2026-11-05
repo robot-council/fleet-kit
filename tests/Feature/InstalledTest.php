@@ -152,13 +152,13 @@ it('runs the installed script directly, without the proxy, in the copy', functio
     expect($code)->toBe(0, $out)->and($out)->toStartWith('UNDER account=main');
 });
 
-it('installs the dist without tests, CI or the lock file, and with the docs and examples', function () {
+it('installs the dist without tests, CI, the lock file or offline docs (they are the wiki), and with the examples', function () {
     $package = installedProject('copy').'/vendor/robot-council/fleet-kit';
 
-    foreach (['/tests', '/.github', '/phpunit.xml', '/composer.lock', '/.gitattributes'] as $absent) {
+    foreach (['/tests', '/.github', '/phpunit.xml', '/composer.lock', '/.gitattributes', '/docs'] as $absent) {
         expect(file_exists($package.$absent))->toBeFalse($absent);
     }
-    foreach (['/bin/seat-pace', '/bin/seat-stage', '/bin/autoload.php', '/lib/common', '/lib/pace', '/lib/release', '/lib/stage', '/docs/restart.md', '/examples/seats.toml', '/LICENSE'] as $present) {
+    foreach (['/bin/seat-pace', '/bin/seat-stage', '/bin/autoload.php', '/lib/common', '/lib/pace', '/lib/release', '/lib/stage', '/examples/seats.toml', '/examples/pacing-policy.example.md', '/LICENSE'] as $present) {
         expect(file_exists($package.$present))->toBeTrue($present);
     }
 });

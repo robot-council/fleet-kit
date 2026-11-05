@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-16"?>
 <!-- Task Scheduler: one `seat-pace watch` tick every 55 minutes.
      Replace C:\path\to\fleet-kit, then: schtasks /Create /TN seat-pace /XML seat-pace-task.xml
-     `seat-pace read` works on Windows: it reads Claude Code's credential file (docs/pacing.md). Run
+     `seat-pace read` works on Windows: it reads Claude Code's credential file (wiki: https://github.com/robot-council/fleet-kit/wiki/Pacing-a-usage-allowance#platform-support). Run
      `seat-pace read` once by hand first. The .ps1 wrapper suits a checkout; for a Composer install point the command at the seat-pace
      proxy, and --config at the seats file in your private configuration repository. -->
 <Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
