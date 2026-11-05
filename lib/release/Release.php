@@ -107,7 +107,7 @@ final class Release
             }
 
             return sprintf(
-                'fleet-kit %s is installed and %s is out. Update with `composer global update %s` (`composer update %s` in a project): docs/getting-started.md#updating. Turn this notice off with %s=1.',
+                'fleet-kit %s is installed and %s is out. Update with `composer global update %s` (`composer update %s` in a project): https://github.com/robot-council/fleet-kit/wiki/Getting-started#updating. Turn this notice off with %s=1.',
                 $this->installed(),
                 $latest,
                 self::PACKAGE,

@@ -37,7 +37,7 @@ it('says so, once, when the installed release is behind the latest', function ()
 
     expect($line)->toContain('v0.1.3 is installed and v0.1.5 is out')
         ->toContain('composer global update robot-council/fleet-kit')
-        ->toContain('docs/getting-started.md#updating')
+        ->toContain('wiki/Getting-started#updating')
         ->toContain('FLEET_KIT_NO_UPDATE_CHECK=1')
         ->not->toContain("\n");
 });

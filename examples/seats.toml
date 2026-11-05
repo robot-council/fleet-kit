@@ -46,7 +46,7 @@ role = "ci"
 after = ["a"]              # start after these slots
 conversation = "11111111-1111-1111-1111-111111111111"
 
-# A Codex seat: started with `codex`, gets no channel notice, no channel flag. See docs/restart.md.
+# A Codex seat: started with `codex`, gets no channel notice, no channel flag. See the Restarting a machine's seats page of the wiki (https://github.com/robot-council/fleet-kit/wiki/Restarting-a-machines-seats#codex-seats).
 [[seat]]
 machine = "office"
 slot = "codex"
@@ -69,11 +69,11 @@ log = "seat-pace.tsv"
 # An allowance belongs to an account, not to a seat: every seat on the account bills the same one.
 [[account]]
 name = "main"
-# github = "example-user"   # optional: your GitHub username, put in the first prompt of every seat on this account's machines (docs/restart.md)
+# github = "example-user"   # optional: your GitHub username, put in the first prompt of every seat on this account's machines (wiki: https://github.com/robot-council/fleet-kit/wiki/Restarting-a-machines-seats#the-seats-file)
 harness = "claude"        # the adapter that reads this allowance
 machine = "office"        # the machine whose login can read it; set SEAT_PACE_MACHINE to override the hostname
 # machine = ["office", "home"]   # or a list, the preferred first: "home" reads while the fleet shows "office"
-#                                # absent (docs/pacing.md). Names are the machines' labels in the fleet.
+#                                # absent (wiki: https://github.com/robot-council/fleet-kit/wiki/Pacing-a-usage-allowance#when-the-reading-machine-is-down). Names are the machines' labels in the fleet.
 timezone = "America/Chicago"
 reset = "Mon 12:00"       # the configured reset is authoritative; the endpoint's resets_at is only a cross-check
 hours = "working"         # "working" draws the line over working hours, "clock" over every hour
