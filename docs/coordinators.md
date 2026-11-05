@@ -70,7 +70,7 @@ Operator and coordinator, once each.
 1. A Robot Council fleet exists, and each machine is enrolled and has Claude Code wired to the `robot-council` MCP server ([the CLI's setup](https://github.com/robot-council/cli/wiki/Creating-a-fleet-and-enrolling-a-machine)).
 2. The bridge's stop hook is installed on every machine that runs a seat.
 3. A **private** configuration repository exists, with `seats.toml`, the pacing policy and the `on_change` scripts, and **no credential or token** anywhere in it.
-4. fleet-kit is installed on each machine (`composer global require robot-council/fleet-kit`) and `FLEET_KIT_CONFIG` points at the seats file.
+4. fleet-kit is installed on each machine (`composer global require robot-council/fleet-kit`) and the seats file's path is remembered (`seat-stage config set <path>`; `FLEET_KIT_CONFIG` also works).
 5. `seat-stage check` is clean and `--dry-run` reads right on every machine; the first real stage is done by an operator, with `start = "enter"`.
 6. `seat-stage collect` has recorded the conversation ids, and they are committed to the configuration repository.
 7. `seat-pace pace --used … --now …` gives the verdicts you expect for your reset, timezone and working hours; `seat-pace read` has been run once by the account's operator; a scheduler runs `watch --once`.

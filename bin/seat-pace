@@ -78,6 +78,7 @@ $cli = new Cli(
     machine: getenv('SEAT_PACE_MACHINE') ?: (string) gethostname(),
     presence: new FleetPresence($ask),
     release: FleetKit\Release::real(),
+    locator: FleetKit\ConfigLocator::real(),
 );
 
 exit($cli->run(array_slice($argv, 1), getenv('FLEET_KIT_CONFIG') ?: null));

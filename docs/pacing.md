@@ -8,7 +8,7 @@ whether it is above or below a straight line to the reset. It reports; it never 
 
 1. Install fleet-kit (PHP 8.4 or later): see [Getting started](getting-started.md).
 2. Copy `examples/seats.toml` into your private configuration repository as `seats.toml` and edit the
-   `[[account]]`. Point `FLEET_KIT_CONFIG` (or `--config`) at it.
+   `[[account]]`. Remember it once with `seat-stage config set <path>` (or point `FLEET_KIT_CONFIG` or `--config` at it); `seat-pace` finds it the same way.
 3. Try the arithmetic, which reads nothing: `bin/seat-pace pace --used 46 --now 2026-10-21T12:00:00-05:00`
    (`seat-pace` if you installed with Composer; see the README's Install section).
 

@@ -54,6 +54,21 @@ Conversation ids in `seats.toml` are not secrets, but they name your sessions: a
 
 ## 4. Point the tools at it
 
+Once per machine, remember where the seats file is:
+
+```
+seat-stage config set ~/fleet-config/seats.toml
+```
+
+That writes the absolute path to one small per-user file (`%APPDATA%\fleet-kit\seats-path` on Windows, `~/Library/Application Support/fleet-kit/seats-path` on macOS, `$XDG_CONFIG_HOME/fleet-kit/seats-path` or `~/.config/fleet-kit/seats-path` elsewhere). After that, `seat-stage` and `seat-pace` find the seats file from any directory, in a scheduler and after a reboot, with no variable and no `--config`. Both tools look in this order, and the first match wins:
+
+1. `--config <file>`
+2. `FLEET_KIT_CONFIG`
+3. the remembered path
+4. `seats.toml` in the current directory
+
+`seat-stage config show` prints the path in force and which of the four supplied it; `seat-stage config unset` forgets the remembered path. If the file is not there, the error says so and names `config set`. The environment variable and `--config` still work and win over the remembered path (`config set` tells you when the variable is set), for example in a shell profile:
+
 ```
 # bash or zsh, in your profile
 export FLEET_KIT_CONFIG="$HOME/fleet-config/seats.toml"
@@ -65,7 +80,7 @@ $env:FLEET_KIT_CONFIG = "C:/Users/you/fleet-config/seats.toml"
 [Environment]::SetEnvironmentVariable('FLEET_KIT_CONFIG', 'C:/Users/you/fleet-config/seats.toml', 'User')
 ```
 
-Or pass `--config <file>` to any command. A scheduled job does not inherit your shell's environment: the scheduler examples pass `--config` explicitly. A relative `log` path, such as `log = "seat-pace.tsv"`, resolves against the seats file's own directory, so the log lands in your configuration repository (ignore it there, or commit it, as you decide); write `checkout` and any other path as an absolute path. In the seats file write Windows paths with forward slashes or as a `'literal string'`.
+Or pass `--config <file>` to any command. A scheduled job does not inherit your shell's environment, so it relies on the remembered path or on `--config`, which the scheduler examples pass explicitly. A relative `log` path, such as `log = "seat-pace.tsv"`, resolves against the seats file's own directory, so the log lands in your configuration repository (ignore it there, or commit it, as you decide); write `checkout` and any other path as an absolute path. In the seats file write Windows paths with forward slashes or as a `'literal string'`.
 
 ## 5. Stage a machine's seats with `seat-stage`
 
@@ -88,6 +103,18 @@ Add an `[[account]]` to the same seats file (the example has one). Then, in orde
 3. **A scheduler.** `seat-pace watch --once` reads, logs and runs your `on_change` when the verdict changes. Templates are in `examples/schedulers/`: launchd (macOS), systemd (Linux, once `read` is supported there) and Task Scheduler (Windows). Edit the paths in the template: for a Composer install, use `seat-pace` or `vendor/bin/seat-pace` rather than `/path/to/fleet-kit/bin/seat-pace`, and give `--config` the path to your configuration repository's `seats.toml`. The whole of [Pacing a usage allowance](pacing.md) explains the line, the verdict and the log.
 
 If you work from more than one machine, list them in `machine = [...]` and run the same scheduled `watch --once` on each; a later machine reads when the fleet shows the earlier ones absent. That needs the enrolled `robot-council` command and `ROBOT_COUNCIL_SERVICE` in the scheduler's environment: see [When the reading machine is down](pacing.md#when-the-reading-machine-is-down).
+
+## After a reboot
+
+With the path remembered, bringing a machine's seats back is:
+
+```
+seat-stage check <machine> --pull
+seat-stage stage <machine> --dry-run
+seat-stage stage <machine>
+```
+
+`--pull` runs `git pull --ff-only` in the seats file's repository first, so the seats file is current; without it, `check` and `stage` fetch and print one `note:` line when the repository is behind its upstream, and change nothing. A pull that is not a fast-forward stops the command and leaves the file as it was. The pull happens only when you ask for it.
 
 ## Updating
 

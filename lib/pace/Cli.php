@@ -52,6 +52,7 @@ final class Cli
         private readonly string $machine,
         private readonly ?Presence $presence = null,
         private readonly ?\FleetKit\Release $release = null,
+        private readonly ?\FleetKit\ConfigLocator $locator = null,
     ) {}
 
     /** @param  list<string>  $argv  the arguments after the program name */
@@ -74,7 +75,11 @@ final class Cli
                 throw new ConfigError("unknown command \"{$command}\"");
             }
 
-            $config = Config::load($options['config'] ?? $envConfig ?? 'seats.toml');
+            $flag = is_string($options['config'] ?? null) ? $options['config'] : null;
+            ['path' => $path, 'source' => $source] = $this->locator?->resolve($flag, $envConfig)
+                ?? ['path' => $flag ?? $envConfig ?? \FleetKit\ConfigLocator::DEFAULT, 'source' => $flag !== null ? '--config' : 'the default'];
+            is_file($path) || throw \FleetKit\ConfigLocator::missing($path, $source);
+            $config = Config::load($path);
 
             return match ($command) {
                 'pace' => $this->pace($config->account($args[0] ?? null), $options),

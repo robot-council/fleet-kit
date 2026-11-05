@@ -40,7 +40,7 @@ git clone https://github.com/robot-council/fleet-kit && cd fleet-kit && composer
 
 `composer global require` needs Composer's global `vendor/bin` on your `PATH` (`composer global config bin-dir --absolute` prints it). On Windows Composer writes `.bat` proxies, so `seat-pace` and `seat-stage` run from any terminal; the `bin/*.ps1` wrappers are optional, for Task Scheduler and for running a checkout from PowerShell without a proxy.
 
-Your seats file is yours, not the package's. Keep it in a private repository of your own and point `FLEET_KIT_CONFIG` (or `--config`) at it; the default is `seats.toml` in the current directory. The examples ship with the package, in `vendor/robot-council/fleet-kit/examples/` (or `$(composer global config home)/vendor/robot-council/fleet-kit/examples/` for a global install). [Getting started](docs/getting-started.md) walks through it.
+Your seats file is yours, not the package's. Keep it in a private repository of your own and remember it once with `seat-stage config set <path>` (or point `FLEET_KIT_CONFIG` or `--config` at it); the default is `seats.toml` in the current directory. The examples ship with the package, in `vendor/robot-council/fleet-kit/examples/` (or `$(composer global config home)/vendor/robot-council/fleet-kit/examples/` for a global install). [Getting started](docs/getting-started.md) walks through it.
 
 Scheduler examples (`examples/schedulers/`) name `/path/to/fleet-kit/bin/seat-pace`. For a Composer install use the proxy instead: `vendor/bin/seat-pace` in your project, or `seat-pace` in Composer's global `bin-dir` (a `.bat` on Windows). A checkout keeps working with `bin/seat-pace`.
 
