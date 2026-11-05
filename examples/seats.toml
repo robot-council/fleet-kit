@@ -1,6 +1,6 @@
 # Example seats file. It holds no real data: copy it to seats.toml in your private
 # configuration repository (not a fork of fleet-kit) and edit.
-# seat-pace reads the [[account]] tables. seat-stage reads channel, [[machine]] and [[seat]].
+# seat-pace reads the [[account]] tables. seat-stage reads channel, [[machine]] and [[seat]], and the name, machine and github of each [[account]].
 #
 #   bin/seat-stage stage office --dry-run --config examples/seats.toml
 #   bin/seat-stage stage desk   --dry-run --config examples/seats.toml
@@ -69,6 +69,7 @@ log = "seat-pace.tsv"
 # An allowance belongs to an account, not to a seat: every seat on the account bills the same one.
 [[account]]
 name = "main"
+# github = "example-user"   # optional: your GitHub username, put in the first prompt of every seat on this account's machines (docs/restart.md)
 harness = "claude"        # the adapter that reads this allowance
 machine = "office"        # the machine whose login can read it; set SEAT_PACE_MACHINE to override the hostname
 # machine = ["office", "home"]   # or a list, the preferred first: "home" reads while the fleet shows "office"

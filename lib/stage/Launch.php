@@ -33,7 +33,9 @@ final class Launch
                 ."If it offers only `join`, your session ended: call `join` with role: {$seat->role}, repository: {$seat->repository}, work_location: {$seat->workLocation}{$join}. "
                 .'Never call `leave`: leaving releases the tasks you hold.';
 
-        return trim($first.($seat->prompt === '' ? '' : ' '.preg_replace('/\s+/', ' ', $seat->prompt)));
+        $operator = $seat->github === null ? '' : " Your operator's GitHub username is `{$seat->github}`.";
+
+        return trim($first.$operator.($seat->prompt === '' ? '' : ' '.preg_replace('/\s+/', ' ', $seat->prompt)));
     }
 
     /** The program a seat runs. */

@@ -50,6 +50,16 @@ dash, a `checkout` may not hold `#(`, and a seat `prompt` may not hold a double 
 PowerShell 5.1 would split an argument on. In PowerShell the curly single quotes (U+2018 to U+201B) are
 doubled like `'`.
 
+**Whose seat it is.** An `[[account]]` may carry `github = "<username>"`. Every seat on a machine that the
+account lists in `machine` then gets one more sentence in its first prompt, after the join or resume text and
+before the seat's own `prompt`: ``Your operator's GitHub username is `<username>`.`` A seat told to assign
+tickets and pull requests to its operator no longer has to ask in chat. Leaving `github` unset leaves the
+prompt exactly as it was. The value is 1 to 39 letters, digits and single hyphens, not starting or ending
+with a hyphen, or the file is refused. Codex seats get the same sentence. A machine listed under more than one
+`[[account]]` is refused (naming the machine and the accounts) when any of them sets `github`: `seat-pace`
+reads that list as a fallback order, which does not say whose seat it is, and nothing guesses. List the machine
+under one account. If no account lists a seat's machine, the seat gets no sentence.
+
 `work_location` defaults to the slot, is unique per machine and repository, and is always passed explicitly,
 because a join without it from a primary checkout records `primary`. `remote_control` defaults to
 `<repo>/<machine>/<slot>`. `harness` is `claude` (the default) or `codex`; anything else is refused. What each
