@@ -25,6 +25,7 @@ final readonly class Seat
         public array $after,
         public string $prompt,
         public ?string $start = null,
+        public ?string $github = null,
     ) {}
 
     /** What this seat's harness can do (`lib/stage/harnesses.toml`). */
@@ -109,9 +110,11 @@ final readonly class Fleet
             $machines[$machine->name] = $machine;
         }
 
+        $owners = self::owners($data['account'] ?? []);
+
         $seats = [];
         foreach ($data['seat'] ?? [] as $row) {
-            $seat = self::seat($row, $machines);
+            $seat = self::seat($row, $machines, $owners);
             foreach ($seats as $other) {
                 if ($other->machine !== $seat->machine) {
                     continue;
@@ -224,7 +227,7 @@ final readonly class Fleet
      * @param  array<string, mixed>  $row
      * @param  array<string, Machine>  $machines
      */
-    private static function seat(array $row, array $machines): Seat
+    private static function seat(array $row, array $machines, array $owners = []): Seat
     {
         $machine = self::text($row, 'machine', null, 'seat');
         $slot = self::text($row, 'slot', null, "seat on \"{$machine}\"");
@@ -290,6 +293,7 @@ final readonly class Fleet
             after: $after,
             prompt: $prompt,
             start: $start,
+            github: self::github($machine, $owners),
         );
     }
 
@@ -302,6 +306,55 @@ final readonly class Fleet
     }
 
     /** @param  array<string, mixed>  $row */
+    /**
+     * The `[[account]]` tables, reduced to what a seat needs: who they are, the machines that serve them, and
+     * the operator's GitHub username. seat-pace validates the rest of an account; seat-stage ignores it.
+     *
+     * @return list<array{name: string, machines: list<string>, github: ?string}>
+     */
+    private static function owners(mixed $rows): array
+    {
+        $owners = [];
+        foreach (is_array($rows) ? $rows : [] as $row) {
+            if (! is_array($row) || ! is_string($row['name'] ?? null)) {
+                continue;
+            }
+            $at = "account \"{$row['name']}\"";
+            $github = $row['github'] ?? null;
+            if ($github !== null && (! is_string($github) || ! preg_match('/^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$/', $github))) {
+                throw new ConfigError("{$at}: github must be a GitHub username: 1 to 39 characters, letters, digits and single hyphens, not starting or ending with a hyphen");
+            }
+            $owners[] = [
+                'name' => $row['name'],
+                'machines' => array_values(array_filter(is_array($row['machine'] ?? null) ? $row['machine'] : [$row['machine'] ?? null], 'is_string')),
+                'github' => $github,
+            ];
+        }
+
+        return $owners;
+    }
+
+    /**
+     * The GitHub username of the operator a machine's seats belong to: the `github` of the one account that
+     * lists the machine. A machine listed under more than one account is refused when any of them sets
+     * `github`: seat-pace reads that list as a fallback order, which says nothing about whose seat this is,
+     * and nothing here guesses (fleet-kit#32).
+     *
+     * @param  list<array{name: string, machines: list<string>, github: ?string}>  $owners
+     */
+    private static function github(string $machine, array $owners): ?string
+    {
+        $listing = array_values(array_filter($owners, fn (array $o) => array_filter($o['machines'], fn (string $m) => strcasecmp($m, $machine) === 0) !== []));
+        $named = array_values(array_filter($listing, fn (array $o) => $o['github'] !== null));
+        if (count($listing) > 1 && $named !== []) {
+            $names = implode(', ', array_map(fn (array $o) => "\"{$o['name']}\"", $listing));
+            $sets = implode(', ', array_map(fn (array $o) => "\"{$o['name']}\"", $named));
+            throw new ConfigError("machine \"{$machine}\" is listed under more than one [[account]] ({$names}) and github is set on {$sets}, so the seats on it cannot be told whose they are; list the machine under one account");
+        }
+
+        return $named[0]['github'] ?? null;
+    }
+
     private static function text(array $row, string $key, ?string $default, string $at): string
     {
         $value = $row[$key] ?? $default;
