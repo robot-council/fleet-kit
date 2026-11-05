@@ -28,6 +28,7 @@ $cli = new Cli(
     host: Host::real(),
     clock: $clock,
     sleep: fn (int $seconds) => sleep($seconds),
+    release: FleetKit\Release::real(),
 );
 
 exit($cli->run(array_slice($argv, 1), getenv('FLEET_KIT_CONFIG') ?: null));

@@ -31,7 +31,7 @@ final class Cli
           seat-pace pace  [account] --used 46 --now <iso>   arithmetic only; no reading
           seat-pace log   [account] [--note ...]    append a row to the log
           seat-pace watch [account] [--every 55m] [--once]  read, log, run on_change when the verdict changes
-        options: --config <file> (or FLEET_KIT_CONFIG; default seats.toml)
+        options: --config <file> (or FLEET_KIT_CONFIG; default seats.toml), --version
         exit status: 0 UNDER, 3 OVER, 1 read failed, 2 configuration error
         TXT;
 
@@ -51,6 +51,7 @@ final class Cli
         private readonly Closure $sleep,
         private readonly string $machine,
         private readonly ?Presence $presence = null,
+        private readonly ?\FleetKit\Release $release = null,
     ) {}
 
     /** @param  list<string>  $argv  the arguments after the program name */
@@ -58,6 +59,11 @@ final class Cli
     {
         try {
             [$command, $args, $options] = $this->parse($argv);
+            if (isset($options['version'])) {
+                ($this->out)('seat-pace '.($this->release?->installed() ?? 'unknown'));
+
+                return self::UNDER;
+            }
             if ($command === null || isset($options['help'])) {
                 ($this->out)(self::USAGE);
 
@@ -283,7 +289,7 @@ final class Cli
     /** @return array{0: ?string, 1: list<string>, 2: array<string, string|true>} */
     private function parse(array $argv): array
     {
-        $flags = ['json', 'once', 'help'];
+        $flags = ['json', 'once', 'help', 'version'];
         $words = [];
         $options = [];
         for ($i = 0; $i < count($argv); $i++) {
