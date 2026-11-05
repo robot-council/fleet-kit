@@ -21,7 +21,7 @@
     },
     "bin": ["bin/seat-pace", "bin/seat-stage"],
     "autoload": {
-        "classmap": ["lib/pace/", "lib/stage/"]
+        "classmap": ["lib/pace/", "lib/release/", "lib/stage/"]
     },
     "autoload-dev": {
         "psr-4": {

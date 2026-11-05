@@ -104,4 +104,10 @@ To stay on a release line, require a version constraint (`composer global requir
 2. Run `seat-stage check <machine>` and `seat-stage stage <machine> --dry-run` before restarting seats.
 3. Re-measure after a Claude Code upgrade: the channel flag is hidden from `claude --help`, and its argument rules were measured on one version ([Restarting a machine's seats](restart.md#the-command-line)).
 
+**Which release is installed.** `seat-stage --version` and `seat-pace --version` print it: the Composer version for an installed package, the git tag (`git describe`) for a checkout.
+
+**The behind-notice.** `seat-stage check` and `seat-stage stage` (with or without `--dry-run`) compare the installed release with the latest published one, and when you are behind they print one line on stderr after the command, naming the update command above. It never updates anything and never changes the exit status. `seat-stage collect` and `seat-pace` (so a scheduled `seat-pace watch --once`) print nothing extra and never look anything up.
+
+The latest release is looked up with `curl` from the GitHub releases API, at most once a day, with a 3-second limit; the answer is kept in `latest-release.json` under `fleet-kit` in your cache directory (`$XDG_CACHE_HOME`, `%LOCALAPPDATA%` on Windows, otherwise `~/.cache`). A failed lookup is silent and is not retried until the day is up, so a machine with no network is not nagged or slowed. An install whose release cannot be read (a checkout with no git tags, say) is never told it is behind. To turn the notice off, set `FLEET_KIT_NO_UPDATE_CHECK=1` in the environment of the shell or scheduler; nothing is then looked up.
+
 Your configuration repository is untouched by an update. If an update changes a setting's meaning, the release notes say so.

@@ -11,7 +11,7 @@ use FleetKit\Pace\UsageReader;
 use FleetKit\Pace\UnsupportedReader;
 
 /** @return array{0: int, 1: list<string>, 2: list<string>, 3: list<array{0: string, 1: array}>} exit, stdout, stderr, shell calls */
-function seatPace(array $argv, ?UsageReader $reader = null, string $now = '2026-10-21T12:00:00-05:00', string $machine = 'office', array $shellOut = [], ?string $dir = null, ?string $toml = null, ?Presence $presence = null): array
+function seatPace(array $argv, ?UsageReader $reader = null, string $now = '2026-10-21T12:00:00-05:00', string $machine = 'office', array $shellOut = [], ?string $dir = null, ?string $toml = null, ?Presence $presence = null, ?FleetKit\Release $release = null): array
 {
     $dir ??= sys_get_temp_dir().'/seat-pace-'.bin2hex(random_bytes(4));
     is_dir($dir) || mkdir($dir);
@@ -30,6 +30,7 @@ function seatPace(array $argv, ?UsageReader $reader = null, string $now = '2026-
         sleep: function (int $s) { throw new RuntimeException("slept {$s}"); },
         machine: $machine,
         presence: $presence,
+        release: $release,
     );
 
     return [$cli->run(array_merge($argv, ['--config', $config])), $out, $err, $shell, $dir];
@@ -227,4 +228,15 @@ it('rejects a bad interval', function () {
     [$code] = seatPace(['watch', '--every', 'often'], fakeReader(30));
 
     expect($code)->toBe(2);
+});
+
+it('prints the installed release for --version, and never looks up or prints a newer one', function () {
+    $lookups = 0;
+    $release = new FleetKit\Release(fn () => 'v0.1.3', function () use (&$lookups) { $lookups++; return 'v0.1.5'; }, null, fn () => 1_000_000);
+    [$code, $out, $err] = seatPace(['--version'], release: $release);
+    [, , $paceErr] = seatPace(['pace', '--used', '40', '--now', '2026-10-21T12:00:00-05:00'], release: $release);
+
+    expect($code)->toBe(0)->and($out)->toBe(['seat-pace v0.1.3'])->and($err)->toBe([])
+        ->and($paceErr)->toBe([])
+        ->and($lookups)->toBe(0);
 });

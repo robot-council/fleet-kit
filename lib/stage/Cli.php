@@ -6,6 +6,7 @@ namespace FleetKit\Stage;
 
 use Closure;
 use FleetKit\Pace\ConfigError;
+use FleetKit\Release;
 use Throwable;
 
 /**
@@ -19,7 +20,7 @@ final class Cli
           seat-stage stage   <machine> [--dry-run]   build one multiplexer session with a window per seat
           seat-stage collect <machine>               read conversation ids from live processes into the seats file
           seat-stage check   <machine>               report every reason staging would fail, changing nothing
-        options: --config <file> (or FLEET_KIT_CONFIG; default seats.toml)
+        options: --config <file> (or FLEET_KIT_CONFIG; default seats.toml), --version
         --dry-run prints each seat's exact command and first prompt and touches nothing.
         exit status: 0 done, 1 a check or a step failed, 2 configuration error
         TXT;
@@ -36,13 +37,30 @@ final class Cli
         private readonly Host $host,
         private readonly ProcessClock $clock,
         private readonly Closure $sleep,
+        private readonly ?Release $release = null,
     ) {}
 
     /** @param  list<string>  $argv  the arguments after the program name */
     public function run(array $argv, ?string $envConfig = null): int
     {
+        $notify = false;
+        $code = $this->dispatch($argv, $envConfig, $notify);
+        // One line on stderr after the command, when the install is behind; it never changes the exit status.
+        $notify && ($notice = $this->release?->behindNotice()) !== null && ($this->err)('seat-stage: '.$notice);
+
+        return $code;
+    }
+
+    /** @param  list<string>  $argv */
+    private function dispatch(array $argv, ?string $envConfig, bool &$notify): int
+    {
         try {
             [$command, $machine, $options] = $this->parse($argv);
+            if (isset($options['version'])) {
+                ($this->out)('seat-stage '.($this->release?->installed() ?? 'unknown'));
+
+                return 0;
+            }
             if (isset($options['help'])) {
                 ($this->out)(self::USAGE);
 
@@ -51,6 +69,7 @@ final class Cli
             if (! in_array($command, ['stage', 'collect', 'check'], true)) {
                 throw new ConfigError($command === null ? self::USAGE : "unknown command \"{$command}\"");
             }
+            $notify = $command !== 'collect';
             $machine !== null || throw new ConfigError("{$command} needs a machine");
             isset($options['dry-run']) && $command === 'check' && throw new ConfigError('check already changes nothing; --dry-run is for stage and collect');
 
@@ -117,7 +136,7 @@ final class Cli
             if (str_contains($name, '=')) {
                 [$name, $value] = explode('=', $name, 2);
                 $options[$name] = $value;
-            } elseif (in_array($name, ['dry-run', 'help'], true)) {
+            } elseif (in_array($name, ['dry-run', 'help', 'version'], true)) {
                 $options[$name] = true;
             } elseif (isset($argv[$i + 1])) {
                 $options[$name] = $argv[++$i];
