@@ -10,6 +10,9 @@ use FleetKit\Pace\Toml;
 /** One seat: a Claude Code conversation in one checkout, with the role it joins the fleet in. */
 final readonly class Seat
 {
+    /** The width of core's work_location column (robot-council/core, Support\WorkIdentity::MAX_LOCATION). */
+    public const MAX_WORK_LOCATION = 32;
+
     /** @param  list<string>  $after  slots on the same machine that start before this one */
     public function __construct(
         public string $machine,
@@ -244,6 +247,10 @@ final readonly class Fleet
 
         $workLocation = self::text($row, 'work_location', $slot, $at);
         preg_match('/^[a-z0-9._-]+$/', $workLocation) || throw new ConfigError("{$at}: work_location is a short label of [a-z0-9._-], never a path");
+        if (strlen($workLocation) > Seat::MAX_WORK_LOCATION) {
+            $hint = isset($row['work_location']) ? '' : '; it defaults to the slot, so give a shorter slot or set work_location';
+            throw new ConfigError("{$at}: work_location \"{$workLocation}\" is ".strlen($workLocation).' characters; the limit is '.Seat::MAX_WORK_LOCATION.' (robot-council/core, WorkIdentity::MAX_LOCATION), and a longer one is recorded cut short at join'.$hint);
+        }
 
         $harness = self::text($row, 'harness', 'claude', $at);
         Harnesses::has($harness) || throw new ConfigError("{$at}: harness \"{$harness}\" is not stageable; the stageable harnesses are ".implode(', ', Harnesses::names()));

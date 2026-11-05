@@ -60,7 +60,9 @@ with a hyphen, or the file is refused. Codex seats get the same sentence. A mach
 reads that list as a fallback order, which does not say whose seat it is, and nothing guesses. List the machine
 under one account. If no account lists a seat's machine, the seat gets no sentence.
 
-`work_location` defaults to the slot, is unique per machine and repository, and is always passed explicitly,
+`work_location` is at most 32 characters, the width of core's column (`WorkIdentity::MAX_LOCATION` in robot-council/core): a
+longer one is recorded cut short at `join` and every later `session_move` to the full name is refused, so the file is
+refused instead, naming the seat. The default, the slot, is held to the same limit. It defaults to the slot, is unique per machine and repository, and is always passed explicitly,
 because a join without it from a primary checkout records `primary`. `remote_control` defaults to
 `<repo>/<machine>/<slot>`. `harness` is `claude` (the default) or `codex`; anything else is refused. What each
 harness can do (its program, launch and resume arguments, flags, where `check` looks) is a table the code reads,
