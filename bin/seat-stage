@@ -29,6 +29,8 @@ $cli = new Cli(
     clock: $clock,
     sleep: fn (int $seconds) => sleep($seconds),
     release: FleetKit\Release::real(),
+    locator: FleetKit\ConfigLocator::real(),
+    repo: new FleetKit\Stage\SeatsRepo($shell, FleetKit\Stage\SeatsRepo::withoutPrompts(...)),
 );
 
 exit($cli->run(array_slice($argv, 1), getenv('FLEET_KIT_CONFIG') ?: null));

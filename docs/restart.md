@@ -12,14 +12,26 @@ changes nothing.
 1. `composer install` (PHP 8.4 or later), and install the multiplexer: tmux on macOS and Linux,
    psmux on Windows.
 2. Copy `examples/seats.toml` into your private configuration repository as `seats.toml` and edit it.
-   Point `FLEET_KIT_CONFIG` (or `--config`) at it. The same file holds seat-pace's `[[account]]` tables.
-   See [Getting started](getting-started.md).
+   Remember it once with `seat-stage config set <path>` (or point `FLEET_KIT_CONFIG` or `--config` at it).
+   The same file holds seat-pace's `[[account]]` tables. See [Getting started](getting-started.md#4-point-the-tools-at-it).
 3. `bin/seat-stage check <machine>` reports every reason staging would fail.
 4. `bin/seat-stage stage <machine> --dry-run` (`seat-stage` if installed with Composer) prints each seat's exact command and first prompt.
 5. `bin/seat-stage stage <machine>` builds the session. Attach with `tmux attach -t <session>`
    (`psmux attach` on Windows).
 
 On Windows, `bin/seat-stage.ps1` is a thin wrapper.
+
+**After a reboot**, with the path remembered, from any directory:
+
+```
+seat-stage check <machine> --pull      # --pull: git pull --ff-only the seats file's repository first
+seat-stage stage <machine> --dry-run
+seat-stage stage <machine>
+```
+
+The seats file is `--config`, else `FLEET_KIT_CONFIG`, else the path `seat-stage config set` remembered, else
+`seats.toml` in the current directory; `seat-stage config show` says which. Without `--pull`, `check` and
+`stage` fetch and print a `note:` when the seats file's repository is behind its upstream, and change nothing.
 
 ## The seats file
 

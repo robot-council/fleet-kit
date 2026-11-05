@@ -158,7 +158,7 @@ it('installs the dist without tests, CI or the lock file, and with the docs and 
     foreach (['/tests', '/.github', '/phpunit.xml', '/composer.lock', '/.gitattributes'] as $absent) {
         expect(file_exists($package.$absent))->toBeFalse($absent);
     }
-    foreach (['/bin/seat-pace', '/bin/seat-stage', '/bin/autoload.php', '/lib/pace', '/lib/release', '/lib/stage', '/docs/restart.md', '/examples/seats.toml', '/LICENSE'] as $present) {
+    foreach (['/bin/seat-pace', '/bin/seat-stage', '/bin/autoload.php', '/lib/common', '/lib/pace', '/lib/release', '/lib/stage', '/docs/restart.md', '/examples/seats.toml', '/LICENSE'] as $present) {
         expect(file_exists($package.$present))->toBeTrue($present);
     }
 });
