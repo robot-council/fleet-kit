@@ -29,15 +29,16 @@ On Windows, `bin/seat-stage.ps1` is a thin wrapper.
 | `[[machine]]` | `name`, `multiplexer` (`tmux` or `psmux`), `session`, `start`, `start_gap`, `confirm_channels`, `remote_control` |
 | `[[seat]]` | `machine`, `slot`, `repository`, `checkout`, `role`, and optionally `work_location`, `capacity`, `conversation`, `remote_control`, `after`, `prompt`, `start` |
 
-Per machine, `slot`, `work_location`, `conversation` and the window name (the repository name and the
-slot, with anything but letters, digits, dash and underscore turned into a dash) must each be unique;
-the file is refused otherwise. `session` is letters, digits, dash and underscore. A `conversation` is an
+Per machine, `slot`, `conversation` and the window name (the repository name and the
+slot, with anything but letters, digits, dash and underscore turned into a dash) must each be unique,
+and so must `work_location` per machine and repository (two seats on one machine may share a
+`work_location` when their `repository` differs); the file is refused otherwise. `session` is letters, digits, dash and underscore. A `conversation` is an
 id of letters, digits, dot, dash and underscore. `remote_control` and `checkout` may not start with a
 dash, a `checkout` may not hold `#(`, and a seat `prompt` may not hold a double quote, which Windows
 PowerShell 5.1 would split an argument on. In PowerShell the curly single quotes (U+2018 to U+201B) are
 doubled like `'`.
 
-`work_location` defaults to the slot, is unique per machine, and is always passed explicitly,
+`work_location` defaults to the slot, is unique per machine and repository, and is always passed explicitly,
 because a join without it from a primary checkout records `primary`. `remote_control` defaults to
 `<repo>/<machine>/<slot>`. `harness` is `claude` (the default) or `codex`; anything else is refused. What each
 harness can do (its program, launch and resume arguments, flags, where `check` looks) is a table the code reads,

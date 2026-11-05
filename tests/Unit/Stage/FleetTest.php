@@ -72,6 +72,18 @@ it('refuses a bad file', function (string $toml, string $message) {
     'duplicate machine' => [stageToml(machines: "[[machine]]\nname = \"m\"\n[[machine]]\nname = \"m\"\n"), 'listed twice'],
 ]);
 
+it('lets two seats on one machine share a work_location in different repositories', function () {
+    $other = str_replace(['org/some.repo', '"/src/repo"'], ['org/other.repo', '"/src/other"'], seatToml('b', 'work_location = "a"'));
+    $fleet = Fleet::parse(stageToml(seatToml('a').$other));
+
+    expect(array_map(fn ($s) => [$s->repository, $s->workLocation], $fleet->seats))
+        ->toBe([['org/some.repo', 'a'], ['org/other.repo', 'a']]);
+});
+
+it('still refuses a shared work_location in one repository, naming the seat', function () {
+    Fleet::parse(stageToml(seatToml('a').seatToml('b', 'work_location = "a"')));
+})->throws(ConfigError::class, 'm/b: work_location "a" is already used on this machine');
+
 it('starts seats after the ones they name, otherwise in file order', function () {
     $fleet = Fleet::parse(stageToml(seatToml('c', 'after = ["a"]').seatToml('b').seatToml('a')));
 

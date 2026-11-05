@@ -117,7 +117,7 @@ final readonly class Fleet
                     continue;
                 }
                 $other->slot === $seat->slot && throw new ConfigError("{$seat->label()}: slot is listed twice");
-                $other->workLocation === $seat->workLocation && throw new ConfigError("{$seat->label()}: work_location \"{$seat->workLocation}\" is already used on this machine");
+                $other->workLocation === $seat->workLocation && $other->repository === $seat->repository && throw new ConfigError("{$seat->label()}: work_location \"{$seat->workLocation}\" is already used on this machine");
                 $other->window() === $seat->window() && throw new ConfigError("{$seat->label()}: window name \"{$seat->window()}\" is already used by {$other->label()}; rename a slot");
                 $seat->conversation !== null && $other->conversation === $seat->conversation && throw new ConfigError("{$seat->label()}: conversation {$seat->conversation} is already used by {$other->label()}");
             }
