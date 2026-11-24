@@ -320,6 +320,44 @@ it('never presses a key when the trust text is on screen with the channels warni
         ->and(implode("\n", $out->getArrayCopy()))->toContain('left for the operator');
 });
 
+/** The trust dialog of Claude Code 2.1.327, measured in fleet-kit#42: no "Is this a project you created or one you trust?". */
+const TRUST_SCREEN_2_1_327 = " Accessing workspace:\n\n D:\src\n\n Claude Code'll be able to read, edit, and execute files here.\n\n ❯ No, exit\n   Yes, I trust this folder\n\n Enter to confirm · Esc to cancel\n";
+
+it('recognizes the current folder-trust dialog, leaves it, and says the channels warning follows', function () {
+    $fleet = confirmFleet();
+    [$stager, $shell, $out, $sleeps] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, TRUST_SCREEN_2_1_327)]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+    $text = implode("\n", $out->getArrayCopy());
+
+    expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
+        ->and($text)->toContain('left for the operator: m/a is waiting at a screen seat-stage will not answer')
+        ->toContain('|  ❯ No, exit')
+        ->toContain("m/a's channels warning will follow once the folder is trusted")
+        ->not->toContain('no channels prompt seen')
+        ->and(count($sleeps))->toBe(0); // seen on the first read: no polling left to do
+});
+
+it('still recognizes the older trust question when the option text is not on screen', function () {
+    $fleet = confirmFleet();
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, " Quick safety check: Is this a project you created or one you trust?\n")]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+    $text = implode("\n", $out->getArrayCopy());
+
+    expect(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'))->toBe([])
+        ->and($text)->toContain('left for the operator')->toContain('channels warning will follow')->not->toContain('no channels prompt seen');
+});
+
+it('does not say a channels warning follows when the screen is not the trust dialog', function () {
+    $fleet = confirmFleet();
+    [$stager, , $out] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, CHANNELS_SCREEN."\n  3. Something new\n")]], );
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(implode("\n", $out->getArrayCopy()))->not->toContain('channels warning will follow');
+});
+
 function mixedSeats(string $machine): Fleet
 {
     return Fleet::parse(stageToml(
