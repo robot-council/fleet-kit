@@ -52,7 +52,7 @@ function stageWith(array $argv, ConfigLocator $locator, ?string $env = null, arr
 
 it('finds the seats file from any directory after one `config set`, with no variable and no --config', function () {
     [$dir, $seats, $locator] = configScratch();
-    $elsewhere = strtr(sys_get_temp_dir(), [chr(92) => '/']);
+    $elsewhere = Fakes::emptyDirectory();
 
     [$before, , $beforeErr] = stageWith(['stage', 'm', '--dry-run'], $locator, cwd: $elsewhere);
     [$set, $setOut] = stageWith(['config', 'set', $seats], $locator);
