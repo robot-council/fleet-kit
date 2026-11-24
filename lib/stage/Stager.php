@@ -18,7 +18,11 @@ final readonly class Stager
     /** The two screens measured in fleet-kit#7. Only the channels warning is ever answered. */
     private const CHANNELS = ['Loading development channels', 'I am using this for local development'];
 
-    private const TRUST = 'Is this a project you created or one you trust?';
+    /**
+     * Either text means the folder-trust dialog: the question older Claude Code versions ask, and the
+     * option every version shows (2.1.327 dropped the question, fleet-kit#42). Never answered.
+     */
+    private const TRUST = ['Is this a project you created or one you trust?', 'Yes, I trust this folder'];
 
     private const POLLS = 20;
 
@@ -154,14 +158,16 @@ final readonly class Stager
     {
         $seen = '';
         $screen = false;
+        $trust = false;
         $unread = null;
         for ($poll = 0; $poll < self::POLLS; $poll++) {
             $capture = $this->shell->run($multiplexer->capture($machine->session, $seat->window()));
             $seen = $capture->out;
             $unread = $capture->code === 0 ? null : $capture->code;
 
-            if (self::shows($seen, self::TRUST)) {
+            if (self::showsAny($seen, self::TRUST)) {
                 $screen = true;
+                $trust = true;
                 break;
             }
             if (self::shows($seen, self::CHANNELS[0]) && self::shows($seen, self::CHANNELS[1])) {
@@ -198,6 +204,20 @@ final readonly class Stager
         foreach ($lines as $line) {
             ($this->out)('    | '.$line);
         }
+        // The channels warning comes after the trust dialog, so it was not on screen to answer.
+        $trust && ($this->out)("    {$seat->label()}'s channels warning will follow once the folder is trusted; seat-stage will not answer it then, so answer it in the window.");
+    }
+
+    /** @param  list<string>  $texts */
+    private static function showsAny(string $pane, array $texts): bool
+    {
+        foreach ($texts as $text) {
+            if (self::shows($pane, $text)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**
