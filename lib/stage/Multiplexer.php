@@ -15,6 +15,14 @@ interface Shell
 {
     /** @param  list<string>  $argv */
     public function run(array $argv, ?string $cwd = null): Result;
+
+    /**
+     * Runs the jobs, at most `$concurrency` at a time, and answers in the order given.
+     *
+     * @param  list<array{0: list<string>, 1: ?string}>  $jobs  each an argument list and a working directory
+     * @return list<Result>
+     */
+    public function runMany(array $jobs, int $concurrency): array;
 }
 
 /** The real thing. */
@@ -32,6 +40,52 @@ final class ProcessShell implements Shell
         fclose($pipes[2]);
 
         return new Result(proc_close($process), $out);
+    }
+
+    /**
+     * Output goes to temp files and the processes are polled: `stream_select` cannot wait on a
+     * `proc_open` pipe on Windows. Stderr is discarded, as `run` discards it.
+     */
+    public function runMany(array $jobs, int $concurrency): array
+    {
+        $null = PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null';
+        $results = [];
+        $running = [];
+        $next = 0;
+
+        while ($next < count($jobs) || $running !== []) {
+            while ($next < count($jobs) && count($running) < max(1, $concurrency)) {
+                [$argv, $cwd] = $jobs[$next];
+                $file = (string) tempnam(sys_get_temp_dir(), 'fk');
+                $process = @proc_open($argv, [1 => ['file', $file, 'w'], 2 => ['file', $null, 'w']], $pipes, $cwd);
+                if (is_resource($process)) {
+                    $running[$next] = [$process, $file];
+                } else {
+                    @unlink($file);
+                    $results[$next] = new Result(127);
+                }
+                $next++;
+            }
+
+            foreach ($running as $i => [$process, $file]) {
+                $status = proc_get_status($process);
+                if ($status['running']) {
+                    continue;
+                }
+                // The exit code is only reported by the first call after the process ends.
+                $code = $status['exitcode'];
+                proc_close($process);
+                $results[$i] = new Result($code, (string) @file_get_contents($file));
+                @unlink($file);
+                unset($running[$i]);
+            }
+
+            $running === [] || usleep(20_000);
+        }
+
+        ksort($results);
+
+        return array_values($results);
     }
 }
 
