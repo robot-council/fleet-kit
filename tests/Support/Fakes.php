@@ -84,6 +84,21 @@ final class Fakes
         return $home;
     }
 
+    /**
+     * A new, empty directory (forward slashes, symlinks resolved), removed when the run ends. For a test
+     * that needs "some directory with nothing in it": the system temp root itself holds whatever other
+     * programs left there, a `seats.toml` included.
+     */
+    public static function emptyDirectory(): string
+    {
+        $made = strtr(sys_get_temp_dir(), [chr(92) => '/']).'/fleet-kit-empty-'.bin2hex(random_bytes(4));
+        mkdir($made);
+        $dir = strtr((string) realpath($made), [chr(92) => '/']);
+        register_shutdown_function(fn () => @rmdir($dir));
+
+        return $dir;
+    }
+
     /** Windows FILETIME ticks for a UTC time. */
     public static function filetime(string $utc): int
     {
