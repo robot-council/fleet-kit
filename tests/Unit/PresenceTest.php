@@ -22,8 +22,10 @@ it('lists the machines with an active session, following the cursor', function (
     // "Home" is lower-cased; the stale laptop session does not count.
     expect($presence->activeMachines('claude'))->toBe(['home', 'office'])
         ->and($commands)->toHaveCount(2)
-        ->and($commands[0])->toContain('robot-council api GET')->toContain('/api/lanes?limit=100')->toContain('--harness=claude')->not->toContain('after=')
-        ->and($commands[1])->toContain('after=88');
+        ->and($commands[0])->toContain('robot-council api GET')->toContain('--harness=claude')->not->toContain('after=')
+        // The whole path, not a substring: `/api/lanes` alone is what the fleet answers 404 to (fleet-kit#43).
+        ->and($commands[0])->toMatch("#GET [\"']/robot-council/api/lanes\?limit=100[\"'] #")
+        ->and($commands[1])->toMatch("#GET [\"']/robot-council/api/lanes\?limit=100&after=88[\"'] #");
 });
 
 it('says what the command said when it fails', function () {

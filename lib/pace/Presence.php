@@ -20,8 +20,8 @@ interface Presence
 
 /**
  * Asks the fleet through the `robot-council` command already enrolled on the machine, so the kit holds no
- * credential and needs no shared storage (fleet-kit#19). `robot-council api GET /api/lanes` lists the
- * sessions in the fleet, each with a `machine_label` and a `status` (`active`, `stale`, or `gone`, which
+ * credential and needs no shared storage (fleet-kit#19). `robot-council api GET /robot-council/api/lanes`
+ * lists the sessions in the fleet, each with a `machine_label` and a `status` (`active`, `stale`, or `gone`, which
  * is never listed); a session that is only `stale` does not count as present. The command starts a
  * session of its own for the read (ephemeral, so the fleet's feed and session list do not show it).
  *
@@ -33,6 +33,13 @@ final class FleetPresence implements Presence
 {
     /** The service's page size is capped; pages are followed by cursor, up to this many. */
     private const PAGE = 100;
+
+    /**
+     * The fleet serves its API under `/robot-council`, as the command's own calls do (`/robot-council/api/sessions`,
+     * `/robot-council/api/events`); `robot-council api` sends a path as given and adds no prefix. Without it the
+     * service answers 404 "The route api/lanes could not be found." (fleet-kit#43, measured 2026-11-24).
+     */
+    private const ROUTE = '/robot-council/api/lanes';
 
     private const MAX_PAGES = 50;
 
@@ -73,7 +80,7 @@ final class FleetPresence implements Presence
     /** @return array{sessions: list<mixed>, cursor?: mixed} */
     private function page(string $harness, ?int $after): array
     {
-        $path = '/api/lanes?limit='.self::PAGE.($after === null ? '' : "&after={$after}");
+        $path = self::ROUTE.'?limit='.self::PAGE.($after === null ? '' : "&after={$after}");
         [$code, $out, $err] = ($this->run)('robot-council api GET '.escapeshellarg($path).' --harness='.$harness);
 
         if ($code !== 0) {
