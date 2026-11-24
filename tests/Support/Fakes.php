@@ -31,6 +31,11 @@ final class FakeShell implements Shell
         return new Result(0);
     }
 
+    public function runMany(array $jobs, int $concurrency): array
+    {
+        return array_map(fn (array $job) => $this->run($job[0], $job[1]), $jobs);
+    }
+
     /** @return list<string> the commands run, one line each */
     public function lines(): array
     {

@@ -178,7 +178,7 @@ final class Cli
 
     private function check(Fleet $fleet, Machine $machine, Holders $holders): int
     {
-        $report = (new Checker($fleet, $this->shell, $this->host, $holders))->check($machine);
+        $report = (new Checker($fleet, $this->shell, $this->host, $holders, $this->out))->check($machine);
         foreach ($report->notes as $note) {
             ($this->out)("note: {$note}");
         }

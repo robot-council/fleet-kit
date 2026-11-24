@@ -68,7 +68,7 @@ final readonly class Stager
 
     public function stage(Machine $machine): int
     {
-        $report = (new Checker($this->fleet, $this->shell, $this->host, $this->holders))->check($machine);
+        $report = (new Checker($this->fleet, $this->shell, $this->host, $this->holders, $this->out))->check($machine);
         foreach ($report->notes as $note) {
             ($this->out)("note: {$note}");
         }

@@ -203,3 +203,24 @@ it('refuses a Codex seat in when-free, which cannot detect a held Codex conversa
 
     expect($report->failures)->toBe(['m/a: start = "when-free" cannot tell whether a live process holds a Codex conversation; use "enter" or "now" for a Codex seat']);
 });
+
+it('lists the MCP servers once for seats that share a checkout, and still checks every seat', function () {
+    $other = str_replace('checkout = "/src/repo"', 'checkout = "/src/other"', seatToml('c'));
+    $fleet = Fleet::parse(stageToml(seatToml('a').seatToml('b').$other, "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\n"));
+    $home = Fakes::sessions([]);
+    $shell = new FakeShell([
+        [['tmux', 'has-session'], new Result(1)],
+        [['claude', 'mcp', 'list'], fn () => new Result(0, "robot-council: php x.php mcp --project other/repo - ✔ Connected\n")],
+    ]);
+    $said = [];
+
+    $report = (new Checker($fleet, $shell, Fakes::host('Windows', $home), new Holders($home.'/.claude/sessions', new FakeClock, 'Windows'), function (string $line) use (&$said) {
+        $said[] = $line;
+    }))->check($fleet->machineNamed('m'));
+
+    $lists = array_values(array_filter($shell->calls, fn (array $c) => $c[0] === ['claude', 'mcp', 'list']));
+    expect(array_column($lists, 1))->toBe(['/src/repo', '/src/other'])
+        ->and($report->failures)->toHaveCount(3)
+        ->and($said[0])->toBe('checking the MCP servers of 3 seats (2 distinct, up to 4 at a time)...')
+        ->and($said[1])->toStartWith('checked the MCP servers in ');
+});
