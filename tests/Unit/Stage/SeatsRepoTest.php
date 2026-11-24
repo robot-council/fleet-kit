@@ -5,9 +5,10 @@ declare(strict_types=1);
 use FleetKit\Stage\Result;
 use FleetKit\Stage\SeatsRepo;
 use Tests\Support\FakeShell;
+use Tests\Support\Fakes;
 
 it('finds the work tree a seats file is in, and says nothing about a file that is not in one', function () {
-    $dir = strtr(sys_get_temp_dir(), [chr(92) => '/']);
+    $dir = Fakes::emptyDirectory();
     $in = new FakeShell([[['git', '-C', $dir, 'rev-parse'], new Result(0, "true\n")]]);
     $out = new FakeShell([[['git', '-C', $dir, 'rev-parse'], new Result(128)]]);
 
