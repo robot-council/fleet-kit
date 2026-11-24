@@ -224,3 +224,34 @@ it('lists the MCP servers once for seats that share a checkout, and still checks
         ->and($said[0])->toBe('checking the MCP servers of 3 seats (2 distinct, up to 4 at a time)...')
         ->and($said[1])->toStartWith('checked the MCP servers in ');
 });
+
+it('reads the session files once for the whole check, not once per seat', function () {
+    $fleet = Fleet::parse(stageToml(
+        seatToml('a', 'conversation = "c-1"').seatToml('b', 'conversation = "c-2"').seatToml('c', 'conversation = "c-3"'),
+        "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\n",
+    ));
+    $home = Fakes::sessions([
+        101 => ['sessionId' => 'c-1', 'procStart' => Fakes::filetime(STARTED_AT)],
+        102 => ['sessionId' => 'other', 'procStart' => Fakes::filetime(STARTED_AT)],
+    ]);
+    $asked = [];
+    $clock = new class(new FakeClock([101 => STARTED_AT, 102 => STARTED_AT]), $asked) implements FleetKit\Stage\ProcessClock
+    {
+        public function __construct(private FakeClock $inner, public array &$asked) {}
+
+        public function startedAt(int $pid): ?DateTimeImmutable
+        {
+            $this->asked[] = $pid;
+
+            return $this->inner->startedAt($pid);
+        }
+    };
+
+    $report = (new Checker($fleet, new FakeShell([[['tmux', 'has-session'], new Result(1)], [['claude', 'mcp', 'list'], new Result(0, "robot-council: php x.php mcp - ✔ Connected
+")]]), Fakes::host('Windows', $home, transcripts: ['c-1', 'c-2', 'c-3']), new Holders($home.'/.claude/sessions', $clock, 'Windows')))
+        ->check($fleet->machineNamed('m'));
+
+    // Three seats, two session files: two lookups, where one reading per seat made six.
+    expect($asked)->toHaveCount(2)
+        ->and($report->failures)->toBe(['m/a: conversation c-1 is already held by process 101']);
+});

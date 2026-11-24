@@ -80,3 +80,54 @@ it('claims nothing where the files are unmeasured or unreadable', function () {
     expect($linux->readable())->toBeFalse()->and($linux->holding('conv-1'))->toBeNull()
         ->and($missing->readable())->toBeFalse();
 });
+
+it('asks a batch clock once for every session file, never per process', function () {
+    $clock = new class implements \FleetKit\Stage\BatchClock
+    {
+        public int $batch = 0;
+
+        public int $single = 0;
+
+        public function startedAt(int $pid): ?DateTimeImmutable
+        {
+            $this->single++;
+
+            return null;
+        }
+
+        public function startTimes(): array
+        {
+            $this->batch++;
+
+            return [101 => new DateTimeImmutable(STARTED, new DateTimeZone('UTC')), 102 => new DateTimeImmutable(STARTED, new DateTimeZone('UTC'))];
+        }
+    };
+    $home = Fakes::sessions([
+        101 => ['sessionId' => 'conv-1', 'procStart' => Fakes::filetime(STARTED)],
+        102 => ['sessionId' => 'conv-2', 'procStart' => Fakes::filetime('2026-10-20T14:00:00+00:00')], // pid reused: starts differ
+        103 => ['sessionId' => 'conv-3', 'procStart' => Fakes::filetime(STARTED)], // not running
+    ]);
+
+    $live = (new Holders($home.'/.claude/sessions', $clock, 'Windows'))->live();
+
+    expect(array_map(fn ($h) => $h->conversation, $live))->toBe(['conv-1'])
+        ->and($clock->batch)->toBe(1)
+        ->and($clock->single)->toBe(0);
+});
+
+it('reads every process start time from one PowerShell answer', function () {
+    $shell = new Tests\Support\FakeShell([[['powershell'], new FleetKit\Stage\Result(0, "101 2026-10-20T13:39:13.1234567Z\r\n102 2026-10-20T15:40:00.0000000+02:00\n\nnot a line\n")]]);
+
+    $starts = (new FleetKit\Stage\WindowsClock($shell))->startTimes();
+
+    expect(array_keys($starts))->toBe([101, 102])
+        ->and($starts[101]->format('c'))->toBe('2026-10-20T13:39:13+00:00')
+        ->and($starts[102]->format('c'))->toBe('2026-10-20T13:40:00+00:00')
+        ->and($shell->calls)->toHaveCount(1);
+});
+
+it('says so when the PowerShell query for start times fails', function () {
+    $shell = new Tests\Support\FakeShell([[['powershell'], new FleetKit\Stage\Result(1)]]);
+
+    (new FleetKit\Stage\WindowsClock($shell))->startTimes();
+})->throws(FleetKit\Stage\Unreadable::class, 'could not read the start times');

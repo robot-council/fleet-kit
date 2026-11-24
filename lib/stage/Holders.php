@@ -19,8 +19,19 @@ interface ProcessClock
     public function startedAt(int $pid): ?DateTimeImmutable;
 }
 
+/** A clock that can answer for every running process in one call, where one call per process is slow. */
+interface BatchClock extends ProcessClock
+{
+    /**
+     * @return array<int, DateTimeImmutable> pid => start, in UTC, for every running process
+     *
+     * @throws Unreadable
+     */
+    public function startTimes(): array;
+}
+
 /** Windows: the process's CreationDate, which a session file's FILETIME `procStart` equals. */
-final readonly class WindowsClock implements ProcessClock
+final readonly class WindowsClock implements BatchClock
 {
     public function __construct(private Shell $shell) {}
 
@@ -38,6 +49,27 @@ final readonly class WindowsClock implements ProcessClock
 
         // Exit 0 and nothing printed: no such process.
         return $text === '' ? null : self::utc($text, $pid);
+    }
+
+    /** One query for every process: a PowerShell start costs more than the query, and asking per process paid it per session file. */
+    public function startTimes(): array
+    {
+        $result = $this->shell->run([
+            'powershell', '-NoProfile', '-NonInteractive', '-Command',
+            "Get-CimInstance Win32_Process | Where-Object { \$_.CreationDate } | ForEach-Object { \"\$(\$_.ProcessId) \$(\$_.CreationDate.ToUniversalTime().ToString('o'))\" }",
+        ]);
+        if ($result->code !== 0) {
+            throw new Unreadable('could not read the start times of the running processes');
+        }
+
+        $starts = [];
+        foreach (preg_split('/\R/', $result->out) ?: [] as $line) {
+            if (preg_match('/^(\d+) (\S+)$/', trim($line), $m)) {
+                $starts[(int) $m[1]] = self::utc($m[2], (int) $m[1]);
+            }
+        }
+
+        return $starts;
     }
 
     private static function utc(string $text, int $pid): DateTimeImmutable
@@ -117,6 +149,7 @@ final readonly class Holders
         }
 
         $holders = [];
+        $starts = null;
         foreach (self::files($this->sessionsDirectory) as $file) {
             $data = json_decode((string) @file_get_contents($file), true);
             if (! is_array($data) || ! is_int($data['pid'] ?? null) || ! is_string($data['sessionId'] ?? null)) {
@@ -124,7 +157,12 @@ final readonly class Holders
             }
             $recorded = self::procStart($data['procStart'] ?? null)
                 ?? throw new Unreadable("could not read procStart in {$file}; cannot tell whether process {$data['pid']} holds {$data['sessionId']}");
-            $actual = $this->clock->startedAt($data['pid']);
+            if ($this->clock instanceof BatchClock) {
+                $starts ??= $this->clock->startTimes();
+                $actual = $starts[$data['pid']] ?? null;
+            } else {
+                $actual = $this->clock->startedAt($data['pid']);
+            }
             if ($actual === null || abs($recorded->getTimestamp() - $actual->getTimestamp()) > self::TOLERANCE) {
                 continue;
             }
