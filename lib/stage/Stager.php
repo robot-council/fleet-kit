@@ -96,12 +96,19 @@ final readonly class Stager
             ($this->out)("created {$seat->label()}");
         }
 
-        $this->startWhenFree($machine, array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free')), $multiplexer);
+        $stuck = $this->startWhenFree($machine, array_values(array_filter($seats, fn (Seat $s) => $s->startMode($machine) === 'when-free')), $multiplexer);
         if ($machine->confirmChannels) {
             foreach ($seats as $seat) {
                 // A seat in `enter` is started by the operator, who answers its prompts; some harnesses show no channels warning.
                 $seat->startMode($machine) === 'enter' || ! $seat->capabilities()->confirmChannels || $this->confirm($machine, $seat, $multiplexer);
             }
+        }
+
+        if ($stuck !== []) {
+            ($this->out)('not started: '.implode(', ', $stuck).'. Each window still shows its typed command at a prompt; start it by hand or clear the line and run `seat-stage stage` again after killing the session.');
+            ($this->out)("staged {$machine->session} with ".count($stuck).' seat(s) not started');
+
+            return 1;
         }
 
         ($this->out)("staged {$machine->session}: attach with `{$machine->multiplexer} attach -t {$machine->session}`");
@@ -126,9 +133,11 @@ final readonly class Stager
      * neither waits on nor holds back the others.
      *
      * @param  list<Seat>  $seats
+     * @return list<string> the labels of the seats whose typed command never ran
      */
-    private function startWhenFree(Machine $machine, array $seats, Multiplexer $multiplexer): void
+    private function startWhenFree(Machine $machine, array $seats, Multiplexer $multiplexer): array
     {
+        $stuck = [];
         foreach ($seats as $i => $seat) {
             $waited = 0;
             while ($seat->conversation !== null && ($holder = $this->holders->holding($seat->conversation)) !== null) {
@@ -139,14 +148,64 @@ final readonly class Stager
                 ($this->sleep)(self::WAIT_STEP);
                 $waited += self::WAIT_STEP;
             }
-            $this->run($multiplexer->type($machine->session, $seat->window(), Launch::command($seat, $machine, $this->fleet)), "could not type into the window for {$seat->label()}");
-            $this->run($multiplexer->key($machine->session, $seat->window(), 'Enter'), "could not start {$seat->label()}");
-            ($this->out)("started {$seat->label()}");
+            $command = Launch::command($seat, $machine, $this->fleet);
+            $this->type($machine, $seat, $multiplexer, $command);
+            if ($this->stuckAt($machine, $seat, $multiplexer, $command)) {
+                // A shell still starting can drop what it is typed, and a terminal in canonical mode holds
+                // one line to 1,024 bytes on macOS (fleet-kit#50): clear the line and type it once more.
+                ($this->out)("{$seat->label()}: the command did not run; clearing the line and typing it again");
+                $this->run($multiplexer->key($machine->session, $seat->window(), 'C-u'), "could not clear the line for {$seat->label()}");
+                ($this->sleep)(3);
+                $this->type($machine, $seat, $multiplexer, $command);
+            }
+            if ($this->stuckAt($machine, $seat, $multiplexer, $command)) {
+                $stuck[] = $seat->label();
+                ($this->out)("NOT started {$seat->label()}: its window still shows the command typed at a prompt");
+            } else {
+                ($this->out)("started {$seat->label()}");
+            }
 
             if ($i < count($seats) - 1) {
                 ($this->sleep)($machine->startGap);
             }
         }
+
+        return $stuck;
+    }
+
+    private function type(Machine $machine, Seat $seat, Multiplexer $multiplexer, string $command): void
+    {
+        $this->run($multiplexer->type($machine->session, $seat->window(), $command), "could not type into the window for {$seat->label()}");
+        $this->run($multiplexer->key($machine->session, $seat->window(), 'Enter'), "could not start {$seat->label()}");
+    }
+
+    /**
+     * Whether the window still ends with the command that was typed, all of it or the front of it: the
+     * shell never took the line, or took only part. Looked at a few times, since a command that ran
+     * leaves the screen a moment after Enter. A pane that cannot be read is not called stuck.
+     */
+    private function stuckAt(Machine $machine, Seat $seat, Multiplexer $multiplexer, string $command): bool
+    {
+        for ($poll = 0; $poll < 3; $poll++) {
+            $capture = $this->shell->run($multiplexer->capture($machine->session, $seat->window()));
+            if ($capture->code !== 0 || ! self::endsWithCommand($capture->out, $command)) {
+                return false;
+            }
+            $poll < 2 && ($this->sleep)(2);
+        }
+
+        return true;
+    }
+
+    /** Whether a pane ends in the command or in a front part of it (whitespace ignored: panes wrap lines). */
+    private static function endsWithCommand(string $pane, string $command): bool
+    {
+        $pane = preg_replace('/\s+/', '', $pane) ?? '';
+        $command = preg_replace('/\s+/', '', $command) ?? '';
+        $head = substr($command, 0, 24);
+        $at = strrpos($pane, $head);
+
+        return $head !== '' && $at !== false && str_starts_with($command, substr($pane, $at));
     }
 
     /**

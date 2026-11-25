@@ -437,3 +437,43 @@ it('does not look for the channels warning on a Codex seat', function () {
 
     expect(verb($shell, 'capture-pane'))->toBe([]);
 });
+
+function longCommandFleet(): Fleet
+{
+    return Fleet::parse(stageToml(seatToml('a', 'conversation = "c-1"'), "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\nstart = \"when-free\"\n"));
+}
+
+it('reports a seat whose typed command never ran as not started, and does not exit 0 (fleet-kit#50)', function () {
+    $fleet = longCommandFleet();
+    $command = Launch::command($fleet->seats[0], $fleet->machineNamed('m'), $fleet);
+    // The shell kept only the front of the line (1,024 bytes on macOS) and never saw Enter.
+    $pane = 'user@host repo % '.substr($command, 0, intdiv(strlen($command), 2));
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], new Result(0, wordwrap($pane, 100, "\n", true))]]);
+
+    $code = $stager->stage($fleet->machineNamed('m'));
+    $text = implode("\n", $out->getArrayCopy());
+
+    expect($code)->toBe(1)
+        ->and($text)->toContain('NOT started m/a')->toContain('not started: m/a')
+        ->not->toContain('started m/a'."\n")
+        ->and(array_values(array_map(fn ($c) => $c[0][4], array_filter(verb($shell, 'send-keys'), fn ($c) => ($c[0][4] ?? '') === 'C-u'))))->toBe(['C-u']);
+});
+
+it('clears the line and types the command again when the first typing was lost', function () {
+    $fleet = longCommandFleet();
+    $command = Launch::command($fleet->seats[0], $fleet->machineNamed('m'), $fleet);
+    $shellRef = null;
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], function () use ($command, &$shellRef) {
+        $cleared = array_filter($shellRef->calls, fn ($c) => ($c[0][4] ?? '') === 'C-u') !== [];
+
+        return new Result(0, $cleared ? "claude starting...\n" : "% ".substr($command, 0, 600));
+    }]]);
+    $shellRef = $shell;
+
+    $code = $stager->stage($fleet->machineNamed('m'));
+    $typed = array_values(array_filter(verb($shell, 'send-keys'), fn ($c) => ($c[0][4] ?? '') === '-l'));
+
+    expect($code)->toBe(0)
+        ->and($typed)->toHaveCount(2)
+        ->and(implode("\n", $out->getArrayCopy()))->toContain('clearing the line and typing it again')->toContain('started m/a');
+});
