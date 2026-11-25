@@ -28,9 +28,28 @@ interface Shell
 /** The real thing. */
 final class ProcessShell implements Shell
 {
+    /**
+     * The environment a command runs in; null leaves it as it is. psmux opens a window in the shell
+     * `SHELL` names, so a caller in Git Bash got bash windows, which cannot run the PowerShell launch
+     * command (fleet-kit#52): psmux is given the environment without it.
+     *
+     * @param  list<string>  $argv
+     * @param  array<string, string>  $base
+     * @return ?array<string, string>
+     */
+    public static function environment(array $argv, array $base): ?array
+    {
+        if (basename(str_replace('\\', '/',(string) ($argv[0] ?? '')), '.exe') !== 'psmux' || ! array_key_exists('SHELL', $base)) {
+            return null;
+        }
+        unset($base['SHELL']);
+
+        return $base;
+    }
+
     public function run(array $argv, ?string $cwd = null): Result
     {
-        $process = @proc_open($argv, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $cwd);
+        $process = @proc_open($argv, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes, $cwd, self::environment($argv, getenv()));
         if (! is_resource($process)) {
             return new Result(127);
         }
@@ -57,7 +76,7 @@ final class ProcessShell implements Shell
             while ($next < count($jobs) && count($running) < max(1, $concurrency)) {
                 [$argv, $cwd] = $jobs[$next];
                 $file = (string) tempnam(sys_get_temp_dir(), 'fk');
-                $process = @proc_open($argv, [1 => ['file', $file, 'w'], 2 => ['file', $null, 'w']], $pipes, $cwd);
+                $process = @proc_open($argv, [1 => ['file', $file, 'w'], 2 => ['file', $null, 'w']], $pipes, $cwd, self::environment($argv, getenv()));
                 if (is_resource($process)) {
                     $running[$next] = [$process, $file];
                 } else {
