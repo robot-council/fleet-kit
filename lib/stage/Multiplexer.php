@@ -39,7 +39,7 @@ final class ProcessShell implements Shell
      */
     public static function environment(array $argv, array $base): ?array
     {
-        if (basename((string) ($argv[0] ?? ''), '.exe') !== 'psmux' || ! array_key_exists('SHELL', $base)) {
+        if (basename(str_replace('\\', '/',(string) ($argv[0] ?? '')), '.exe') !== 'psmux' || ! array_key_exists('SHELL', $base)) {
             return null;
         }
         unset($base['SHELL']);
