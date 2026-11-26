@@ -31,3 +31,12 @@ it('never runs more jobs than the limit', function () {
 
     expect(max(array_map(fn ($r) => (int) $r->out, $results)))->toBeLessThanOrEqual(2);
 });
+
+it('takes SHELL out of the environment psmux runs in, so its windows open in PowerShell (fleet-kit#52)', function () {
+    $base = ['PATH' => '/bin', 'SHELL' => '/bin/bash.exe'];
+
+    expect(ProcessShell::environment(['psmux', 'new-session'], $base))->toBe(['PATH' => '/bin'])
+        ->and(ProcessShell::environment(['C:\bin\psmux.exe', 'new-session'], $base))->toBe(['PATH' => '/bin'])
+        ->and(ProcessShell::environment(['tmux', 'new-session'], $base))->toBeNull()
+        ->and(ProcessShell::environment(['psmux', 'new-session'], ['PATH' => '/bin']))->toBeNull();
+});
