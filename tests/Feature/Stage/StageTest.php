@@ -28,6 +28,11 @@ function stager(Fleet $fleet, array $rules = [], ?FakeClock $clock = null, array
         [['tmux', 'has-session'], new Result(1)],
         [['psmux', 'has-session'], new Result(1)],
         [['claude', 'mcp', 'list'], new Result(0, MCP_OK)],
+        // A window that has printed its prompt: `when-free` waits for one before it types (fleet-kit#50).
+        [['tmux', 'capture-pane'], new Result(0, "% 
+")],
+        [['psmux', 'capture-pane'], new Result(0, "PS C:\src> 
+")],
     ]);
     $out = new ArrayObject;
     $sleeps = new ArrayObject;
@@ -176,7 +181,7 @@ it('waits for a held conversation, then types the command and presses Enter, a g
     $typed = array_values(array_filter($shell->calls, fn ($c) => ($c[0][1] ?? '') === 'send-keys'));
 
     expect($code)->toBe(0)
-        ->and($sleeps->getArrayCopy())->toBe([5, 30])
+        ->and($sleeps->getArrayCopy())->toBe([5, 1, 30, 1])
         ->and(implode("\n", $out->getArrayCopy()))->toContain("waiting: m/a's conversation is held by process 102")
         ->and(array_map(fn ($c) => array_slice($c[0], 4), $typed))->toBe([
             ['-l', $a], ['Enter'], ['-l', $b], ['Enter'],
@@ -189,7 +194,8 @@ it('starts a when-free seat with no conversation at once', function () {
     $fleet = Fleet::parse(stageToml(seatToml('a'), "[[machine]]\nname = \"m\"\nmultiplexer = \"tmux\"\nstart = \"when-free\"\n"));
     [$stager, , , $sleeps] = stager($fleet);
 
-    expect($stager->stage($fleet->machineNamed('m')))->toBe(0)->and($sleeps->getArrayCopy())->toBe([]);
+    // One second for the window's prompt to settle before anything is typed.
+    expect($stager->stage($fleet->machineNamed('m')))->toBe(0)->and($sleeps->getArrayCopy())->toBe([1]);
 });
 
 function confirmFleet(): Fleet
@@ -385,8 +391,8 @@ it('creates an enter seat on a when-free machine waiting, skips it in the start 
             ['-l', Launch::command($fleet->seats[0], $m, $fleet)], ['Enter'],
             ['-l', Launch::command($fleet->seats[2], $m, $fleet)], ['Enter'],
         ])
-        // The wait on a, then one gap between the two seats that start on their own.
-        ->and($sleeps->getArrayCopy())->toBe([5, 30])
+        // The wait on a, a second for its prompt to settle, the gap, then a second for the next seat's.
+        ->and($sleeps->getArrayCopy())->toBe([5, 1, 30, 1])
         ->and(end($windows[0][0]))->toBe('/src/repo')
         ->and(end($windows[1][0]))->toContain('Press Enter to start m/b')
         ->and(end($windows[2][0]))->toBe('/src/repo')
@@ -476,4 +482,76 @@ it('clears the line and types the command again when the first typing was lost',
     expect($code)->toBe(0)
         ->and($typed)->toHaveCount(2)
         ->and(implode("\n", $out->getArrayCopy()))->toContain('clearing the line and typing it again')->toContain('started m/a');
+});
+
+/** The capture-pane reads made before the first typing. */
+function readsBeforeTyping(FakeShell $shell): int
+{
+    $reads = 0;
+    foreach ($shell->calls as $call) {
+        if (($call[0][1] ?? '') === 'capture-pane') {
+            $reads++;
+        }
+        if (($call[0][1] ?? '') === 'send-keys' && in_array('-l', $call[0], true)) {
+            return $reads;
+        }
+    }
+
+    return -1;
+}
+
+it('types a command over 1,024 bytes only once the shell in its window has printed its prompt and gone quiet (fleet-kit#50)', function () {
+    // A long standing prompt makes the typed command longer than macOS holds on one line.
+    $fleet = Fleet::parse(stageToml(
+        seatToml('a', 'conversation = "c-1"'."
+prompt = \"".str_repeat('Read the ticket first. ', 40).'"'),
+        "[[machine]]
+name = \"m\"
+multiplexer = \"tmux\"
+start = \"when-free\"
+",
+    ));
+    $command = Launch::command($fleet->seats[0], $fleet->machineNamed('m'), $fleet);
+    $reads = 0;
+    // A shell still starting: blank, then a half-drawn prompt, then the settled prompt.
+    $screens = ['', 'last login...', 'user@host repo % ', 'user@host repo % '];
+    [$stager, $shell, $out] = stager($fleet, [[['tmux', 'capture-pane'], function () use (&$reads, $screens, $command) {
+        // After typing, the command ran and the window shows the harness.
+        return new Result(0, $reads < count($screens) ? $screens[$reads++] : 'claude starting...');
+    }]]);
+
+    $code = $stager->stage($fleet->machineNamed('m'));
+    $typed = array_values(array_filter(verb($shell, 'send-keys'), fn ($c) => ($c[0][4] ?? '') === '-l'));
+
+    expect(strlen($command))->toBeGreaterThan(1024)
+        ->and($code)->toBe(0)
+        ->and(readsBeforeTyping($shell))->toBe(4)
+        ->and($typed)->toHaveCount(1)
+        ->and(implode("
+", $out->getArrayCopy()))->toContain('started m/a')->not->toContain('typing anyway');
+});
+
+it('types anyway, and says so, when the window never shows a settled prompt', function () {
+    $fleet = longCommandFleet();
+    $n = 0;
+    [$stager, $shell, $out, $sleeps] = stager($fleet, [[['tmux', 'capture-pane'], function () use (&$n) {
+        return new Result(0, 'tick '.$n++);
+    }]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+    $typed = array_values(array_filter(verb($shell, 'send-keys'), fn ($c) => ($c[0][4] ?? '') === '-l'));
+
+    expect($typed)->not->toBe([])
+        ->and(implode("
+", $out->getArrayCopy()))->toContain('its shell showed no settled prompt after 30 seconds; typing anyway')
+        ->and(array_slice($sleeps->getArrayCopy(), 0, 30))->toBe(array_fill(0, 30, 1));
+});
+
+it('does not wait on a window whose pane cannot be read', function () {
+    $fleet = longCommandFleet();
+    [$stager, $shell, , $sleeps] = stager($fleet, [[['tmux', 'capture-pane'], new Result(1)]]);
+
+    $stager->stage($fleet->machineNamed('m'));
+
+    expect(readsBeforeTyping($shell))->toBe(1)->and($sleeps->getArrayCopy())->not->toContain(1);
 });

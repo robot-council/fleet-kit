@@ -31,6 +31,9 @@ final readonly class Stager
 
     private const WAIT_STEP = 5;
 
+    /** Seconds `when-free` waits for a window's shell to show a settled prompt before it types. */
+    private const READY_POLLS = 30;
+
     /**
      * @param  Closure(string): void  $out
      * @param  Closure(int): void  $sleep
@@ -149,6 +152,7 @@ final readonly class Stager
                 $waited += self::WAIT_STEP;
             }
             $command = Launch::command($seat, $machine, $this->fleet);
+            $this->awaitPrompt($machine, $seat, $multiplexer);
             $this->type($machine, $seat, $multiplexer, $command);
             if ($this->stuckAt($machine, $seat, $multiplexer, $command)) {
                 // A shell still starting can drop what it is typed, and a terminal in canonical mode holds
@@ -171,6 +175,31 @@ final readonly class Stager
         }
 
         return $stuck;
+    }
+
+    /**
+     * Waits until the window's shell has printed its prompt and gone quiet, before anything is typed.
+     * A shell still starting leaves the terminal in canonical mode, where macOS drops a typed line
+     * past 1,024 bytes (fleet-kit#50). Ready is the same non-blank screen on two reads a second apart.
+     * A pane that cannot be read, or one that never settles, is not waited on: the typing goes ahead
+     * and the retype and the not-started report stand behind it.
+     */
+    private function awaitPrompt(Machine $machine, Seat $seat, Multiplexer $multiplexer): void
+    {
+        $before = null;
+        for ($poll = 0; $poll < self::READY_POLLS; $poll++) {
+            $capture = $this->shell->run($multiplexer->capture($machine->session, $seat->window()));
+            if ($capture->code !== 0) {
+                return;
+            }
+            $screen = trim($capture->out);
+            if ($screen !== '' && $screen === $before) {
+                return;
+            }
+            $before = $screen;
+            ($this->sleep)(1);
+        }
+        ($this->out)("{$seat->label()}: its shell showed no settled prompt after ".self::READY_POLLS.' seconds; typing anyway');
     }
 
     private function type(Machine $machine, Seat $seat, Multiplexer $multiplexer, string $command): void
